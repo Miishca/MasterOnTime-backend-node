@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: masterontime
+    ports:
+      - "5432:5432"
+    volumes:
+      - masterontime_pgdata:/var/lib/postgresql/data
+
+volumes:
+  masterontime_pgdata:

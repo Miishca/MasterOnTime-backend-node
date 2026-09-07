@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Мінімальна модель для старту core-flow (auth -> search -> booking -> reviews).
+// Поля рейтингу/досвіду/тегів тут реальні (на відміну від mapUserToSpecialist.ts у фронтенді).
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phoneNumber  String?
+  profileImageUrl String?
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now())
+
+  addressCountry String?
+  addressCity    String?
+  addressStreet  String?
+  addressZip     String?
+
+  specialistProfile SpecialistProfile?
+  bookingsAsClient  Booking[]           @relation("ClientBookings")
+  reviewsWritten    Review[]            @relation("ReviewAuthor")
+}
+
+model SpecialistProfile {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String   @unique
+  category   String
+  tags       String[]
+  experience Int      @default(0)
+  rating     Float    @default(0)
+
+  bookingsAsSpecialist Booking[] @relation("SpecialistBookings")
+  reviewsReceived      Review[]  @relation("ReviewTarget")
+}
+
+enum Role {
+  USER
+  SPECIALIST
+  ADMIN
+}
+
+model Booking {
+  id           String        @id @default(uuid())
+  client       User          @relation("ClientBookings", fields: [clientId], references: [id])
+  clientId     String
+  specialist   SpecialistProfile @relation("SpecialistBookings", fields: [specialistId], references: [id])
+  specialistId String
+  startTime    DateTime
+  endTime      DateTime
+  status       BookingStatus @default(PENDING)
+  createdAt    DateTime      @default(now())
+
+  review Review?
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Review {
+  id           String            @id @default(uuid())
+  booking      Booking           @relation(fields: [bookingId], references: [id])
+  bookingId    String            @unique
+  author       User              @relation("ReviewAuthor", fields: [authorId], references: [id])
+  authorId     String
+  specialist   SpecialistProfile @relation("ReviewTarget", fields: [specialistId], references: [id])
+  specialistId String
+  rating       Int
+  comment      String?
+  createdAt    DateTime          @default(now())
+}

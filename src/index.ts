@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
 import { authRouter } from './modules/auth/auth.routes';
+import { usersRouter } from './modules/users/users.routes';
 import { bookingRouter } from './modules/booking/booking.routes';
 import { reviewsRouter } from './modules/reviews/reviews.routes';
 import { searchRouter } from './modules/search/search.routes';
@@ -13,6 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/auth', authRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/specialists', searchRouter);
 app.use('/api/bookings', bookingRouter);
 app.use('/api/reviews', reviewsRouter);

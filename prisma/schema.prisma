@@ -7,17 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Мінімальна модель для старту core-flow (auth -> search -> booking -> reviews).
-// Поля рейтингу/досвіду/тегів тут реальні (на відміну від mapUserToSpecialist.ts у фронтенді).
+// Схема виведена з моделей старого Java-бекенду (Master-On-Time), а не з Liquibase-чейнджлогів.
+// Порядок портування: auth/users -> search -> booking -> reviews -> schedule -> решта.
+
 model User {
-  id           String   @id @default(uuid())
+  id           Int      @id @default(autoincrement())
   email        String   @unique
   passwordHash String
   firstName    String
   lastName     String
   phoneNumber  String?
-  profileImageUrl String?
+  profileImage String?  @db.Text // зберігає data: URI (як Java @Lob)
   role         Role     @default(USER)
+  dateOfBirth  DateTime?
+  gender       Gender?
+  visible      Boolean  @default(true) // фільтр пошуку та /api/users/specialists
+  isDeleted    Boolean  @default(false) // м'яке видалення (Java @SQLDelete)
   createdAt    DateTime @default(now())
 
   addressCountry String?
@@ -25,22 +30,118 @@ model User {
   addressStreet  String?
   addressZip     String?
 
+  googleCalendarAccessToken  String?
+  googleCalendarRefreshToken String?
+  calendarSyncEnabled        Boolean @default(false)
+
   specialistProfile SpecialistProfile?
-  bookingsAsClient  Booking[]           @relation("ClientBookings")
-  reviewsWritten    Review[]            @relation("ReviewAuthor")
+  bookingsAsClient  Booking[]          @relation("ClientBookings")
+  reviewsWritten    Review[]           @relation("ReviewAuthor")
+  availability      Availability[]
+  unavailability    Unavailability[]
+  categories        Category[]         @relation("CategoryOwner")
+
+  @@map("users")
 }
 
 model SpecialistProfile {
-  id         String   @id @default(uuid())
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String   @unique
-  category   String
+  id         Int     @id @default(autoincrement())
+  user       User    @relation(fields: [userId], references: [id])
+  userId     Int     @unique
+  profession String  @default("")
+  about      String  @default("")
+  price      Decimal @default(0) @db.Decimal(10, 2)
   tags       String[]
-  experience Int      @default(0)
-  rating     Float    @default(0)
+  experience Int     @default(0)
+  rating     Float   @default(0)
 
   bookingsAsSpecialist Booking[] @relation("SpecialistBookings")
   reviewsReceived      Review[]  @relation("ReviewTarget")
+
+  @@map("specialist_profiles")
+}
+
+model Booking {
+  id                Int           @id @default(autoincrement())
+  client            User?         @relation("ClientBookings", fields: [clientId], references: [id])
+  clientId          Int? // null для BLOCKED-слотів
+  specialist        SpecialistProfile @relation("SpecialistBookings", fields: [specialistId], references: [id])
+  specialistId      Int
+  serviceItem       CategoryItem? @relation(fields: [serviceItemId], references: [id])
+  serviceItemId     Int?
+  startTime         DateTime
+  endTime           DateTime
+  status            BookingStatus @default(CONFIRMED)
+  proposedStartTime DateTime?
+  proposedEndTime   DateTime?
+  rescheduleMessage String?
+  reason            String? // причина блокування слоту
+  followUpSent      Boolean       @default(false)
+  priceAtBooking    Decimal       @db.Decimal(10, 2)
+  createdAt         DateTime      @default(now())
+
+  review Review?
+
+  @@map("bookings")
+}
+
+model Review {
+  id           Int               @id @default(autoincrement())
+  booking      Booking           @relation(fields: [bookingId], references: [id])
+  bookingId    Int               @unique
+  author       User              @relation("ReviewAuthor", fields: [authorId], references: [id]) // = clientId у DTO-відповідях
+  authorId     Int
+  specialist   SpecialistProfile @relation("ReviewTarget", fields: [specialistId], references: [id])
+  specialistId Int
+  rating       Int
+  comment      String?
+  status       ReviewStatus      @default(VISIBLE)
+  createdAt    DateTime          @default(now())
+
+  @@map("reviews")
+}
+
+model Category {
+  id           Int            @id @default(autoincrement())
+  name         String
+  specialist   User           @relation("CategoryOwner", fields: [specialistId], references: [id])
+  specialistId Int
+  items        CategoryItem[]
+
+  @@map("categories")
+}
+
+model CategoryItem {
+  id              Int       @id @default(autoincrement())
+  name            String
+  durationMinutes Int
+  price           Float
+  category        Category  @relation(fields: [categoryId], references: [id])
+  categoryId      Int
+  bookings        Booking[]
+
+  @@map("category_items")
+}
+
+model Availability {
+  id           Int       @id @default(autoincrement())
+  dayOfWeek    DayOfWeek
+  startTime    String // "09:00" (LocalTime)
+  endTime      String
+  specialist   User      @relation(fields: [specialistId], references: [id])
+  specialistId Int
+
+  @@map("availabilities")
+}
+
+model Unavailability {
+  id           Int      @id @default(autoincrement())
+  startTime    DateTime
+  endTime      DateTime
+  specialist   User     @relation(fields: [specialistId], references: [id])
+  specialistId Int
+
+  @@map("unavailabilities")
 }
 
 enum Role {
@@ -49,18 +150,10 @@ enum Role {
   ADMIN
 }
 
-model Booking {
-  id           String        @id @default(uuid())
-  client       User          @relation("ClientBookings", fields: [clientId], references: [id])
-  clientId     String
-  specialist   SpecialistProfile @relation("SpecialistBookings", fields: [specialistId], references: [id])
-  specialistId String
-  startTime    DateTime
-  endTime      DateTime
-  status       BookingStatus @default(PENDING)
-  createdAt    DateTime      @default(now())
-
-  review Review?
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
 }
 
 enum BookingStatus {
@@ -68,17 +161,24 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+  BLOCKED
+  RESCHEDULE_REQUESTED
 }
 
-model Review {
-  id           String            @id @default(uuid())
-  booking      Booking           @relation(fields: [bookingId], references: [id])
-  bookingId    String            @unique
-  author       User              @relation("ReviewAuthor", fields: [authorId], references: [id])
-  authorId     String
-  specialist   SpecialistProfile @relation("ReviewTarget", fields: [specialistId], references: [id])
-  specialistId String
-  rating       Int
-  comment      String?
-  createdAt    DateTime          @default(now())
+enum ReviewStatus {
+  VISIBLE
+  FLAGGED
+  EDITED
+  HIDDEN
+  DELETED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
 }

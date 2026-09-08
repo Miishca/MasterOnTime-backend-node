@@ -15,6 +15,8 @@ export const registrationSchema = z
     }),
     phoneNumber: z.string().optional(),
     profileImageUrl: z.string().optional(),
+    // Java-DTO вимагає role; старий сервіс його ігнорував — ми поважаємо (D3).
+    role: z.enum(['USER', 'SPECIALIST', 'ADMIN']).default('USER'),
   })
   .refine((data) => data.password === data.repeatPassword, {
     message: 'Passwords do not match',
@@ -22,3 +24,10 @@ export const registrationSchema = z
   });
 
 export type RegistrationInput = z.infer<typeof registrationSchema>;
+
+export const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;

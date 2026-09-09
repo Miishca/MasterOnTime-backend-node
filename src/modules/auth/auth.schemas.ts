@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+// base64 без префікса "data:image/...;base64,". ~4.2M символів ≈ 3 МБ зображення.
+export const imageBase64Field = z
+  .string()
+  .max(4_200_000, 'The image is too large (about 3 MB max).');
+
 export const registrationSchema = z
   .object({
     email: z.string().email(),
@@ -14,8 +19,8 @@ export const registrationSchema = z
       zip: z.string().min(1),
     }),
     phoneNumber: z.string().optional(),
-    // base64 без префікса "data:image/...;base64," — фронт шле файл, читаний через FileReader
-    profileImageBase64: z.string().optional(),
+    // фронт шле файл, читаний через FileReader
+    profileImageBase64: imageBase64Field.optional(),
   })
   .refine((data) => data.password === data.repeatPassword, {
     message: 'Passwords do not match',

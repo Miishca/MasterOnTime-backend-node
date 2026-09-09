@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { imageBase64Field } from '../auth/auth.schemas';
 
 // Відповідає Java UserProfileUpdateRequestDto. Усі поля опційні — на відміну від
 // Java, оновлюємо лише передані ключі (Java наосліп перезаписував усе).
@@ -16,7 +17,7 @@ export const updateProfileSchema = z.object({
     })
     .partial()
     .optional(),
-  profileImageBase64: z.string().optional(),
+  profileImageBase64: imageBase64Field.optional(),
   dateOfBirth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')

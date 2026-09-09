@@ -67,6 +67,23 @@ const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_mod
   });
   assert(r.status === 400, `400 validation (got ${r.status})`);
 
+  console.log('4b) registration with a realistic photo (~700KB base64) -> 201');
+  r = await call('POST', '/auth/registration', {
+    email: `photo${stamp}@test.dev`, password: 'pass123', repeatPassword: 'pass123',
+    firstName: 'Pho', lastName: 'To', address: addr,
+    profileImageBase64: 'A'.repeat(700 * 1024),
+  });
+  assert(r.status === 201, `201 (got ${r.status}) — express.json limit must allow it`);
+  assert(String(r.data.profileImageUrl).startsWith('data:image/'), 'stored as a data: URI');
+
+  console.log('4c) registration with an oversized photo (~5MB) -> 400, not 500');
+  r = await call('POST', '/auth/registration', {
+    email: `huge${stamp}@test.dev`, password: 'pass123', repeatPassword: 'pass123',
+    firstName: 'Hu', lastName: 'Ge', address: addr,
+    profileImageBase64: 'A'.repeat(5 * 1024 * 1024),
+  });
+  assert(r.status === 400, `400 validation (got ${r.status})`);
+
   console.log('5) login (bad password) -> 401');
   r = await call('POST', '/auth/login', { email: userEmail, password: 'wrong' });
   assert(r.status === 401, `401 (got ${r.status})`);
@@ -112,7 +129,8 @@ const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_mod
   assert(r.status === 401, `401 (got ${r.status})`);
 
   // прибирання тестових акаунтів
-  const ids = (await prisma.user.findMany({ where: { email: { in: [userEmail, specEmail] } }, select: { id: true } })).map((u) => u.id);
+  const emails = [userEmail, specEmail, `photo${stamp}@test.dev`];
+  const ids = (await prisma.user.findMany({ where: { email: { in: emails } }, select: { id: true } })).map((u) => u.id);
   await prisma.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
   await prisma.user.deleteMany({ where: { id: { in: ids } } });
   await prisma.$disconnect();

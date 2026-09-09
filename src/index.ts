@@ -14,7 +14,8 @@ import { errorHandler } from './middleware/errorHandler';
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+// Профільні фото приходять як base64 у JSON-тілі; дефолтний ліміт 100kb замалий.
+app.use(express.json({ limit: '8mb' }));
 
 // Перевірка живості: сервер + з'єднання з БД.
 app.get('/health', async (_req, res) => {

@@ -28,7 +28,8 @@ const login = async (email) => (await call('POST', '/auth/login', { email, passw
   const client = await reg(`rc${s}@t.dev`, 'USER', 'Rev');
   const other = await reg(`ro${s}@t.dev`, 'USER', 'Oth');
   const spec = await reg(`rs${s}@t.dev`, 'SPECIALIST', 'Spec');
-  await p.specialistProfile.update({ where: { userId: spec.id }, data: { price: 40 } });
+  await p.user.update({ where: { id: spec.id }, data: { role: 'SPECIALIST' } });
+  await p.specialistProfile.create({ data: { userId: spec.id, price: 40 } });
   const profile = await p.specialistProfile.findUnique({ where: { userId: spec.id } });
 
   const cliTok = await login(`rc${s}@t.dev`);

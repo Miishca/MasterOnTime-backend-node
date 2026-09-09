@@ -31,7 +31,9 @@ const login = async (email) => (await call('POST', '/auth/login', { email, passw
   const client = await reg(`cli${s}@t.dev`, 'USER', 'Client');
   const other = await reg(`oth${s}@t.dev`, 'USER', 'Other');
   const spec = await reg(`spec${s}@t.dev`, 'SPECIALIST', 'Spec');
-  await p.specialistProfile.update({ where: { userId: spec.id }, data: { price: 50 } });
+  // реєстрація завжди дає USER — підвищуємо напряму в БД (у проді це адмін)
+  await p.user.update({ where: { id: spec.id }, data: { role: 'SPECIALIST' } });
+  await p.specialistProfile.create({ data: { userId: spec.id, price: 50 } });
   const specProfile = await p.specialistProfile.findUnique({ where: { userId: spec.id } });
 
   const cliTok = await login(`cli${s}@t.dev`);

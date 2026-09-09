@@ -21,7 +21,10 @@ function assert(cond, msg) {
   if (!cond) process.exitCode = 1;
 }
 
+const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_modules/@prisma/client');
+
 (async () => {
+  const prisma = new PrismaClient();
   const stamp = Date.now();
   const userEmail = `user${stamp}@test.dev`;
   const specEmail = `spec${stamp}@test.dev`;
@@ -38,12 +41,17 @@ function assert(cond, msg) {
   assert(!('passwordHash' in r.data), 'no passwordHash leaked');
   assert(r.data.dateOfBirth === null && 'gender' in r.data, 'dateOfBirth/gender present as null');
 
-  console.log('2) registration (SPECIALIST) -> auto SpecialistProfile');
+  console.log('2) registration ignores role -> always USER');
   r = await call('POST', '/auth/registration', {
     email: specEmail, password: 'pass123', repeatPassword: 'pass123',
     firstName: 'Olena', lastName: 'Master', address: addr, role: 'SPECIALIST',
   });
   assert(r.status === 201, `201 created (got ${r.status})`);
+  const spec = await prisma.user.findUnique({ where: { id: r.data.id } });
+  assert(spec.role === 'USER', `role is USER despite body asking SPECIALIST (got ${spec.role})`);
+  // для кроку 11 підвищуємо напряму в БД (у проді це робить адмін)
+  await prisma.user.update({ where: { id: r.data.id }, data: { role: 'SPECIALIST' } });
+  await prisma.specialistProfile.create({ data: { userId: r.data.id } });
 
   console.log('3) registration duplicate -> 409');
   r = await call('POST', '/auth/registration', {
@@ -104,12 +112,10 @@ function assert(cond, msg) {
   assert(r.status === 401, `401 (got ${r.status})`);
 
   // прибирання тестових акаунтів
-  const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_modules/@prisma/client');
-  const p = new PrismaClient();
-  const ids = (await p.user.findMany({ where: { email: { in: [userEmail, specEmail] } }, select: { id: true } })).map((u) => u.id);
-  await p.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
-  await p.user.deleteMany({ where: { id: { in: ids } } });
-  await p.$disconnect();
+  const ids = (await prisma.user.findMany({ where: { email: { in: [userEmail, specEmail] } }, select: { id: true } })).map((u) => u.id);
+  await prisma.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
+  await prisma.user.deleteMany({ where: { id: { in: ids } } });
+  await prisma.$disconnect();
 
   console.log(process.exitCode ? '\nSOME CHECKS FAILED' : '\nALL CHECKS PASSED');
 })();

@@ -14,9 +14,8 @@ export const registrationSchema = z
       zip: z.string().min(1),
     }),
     phoneNumber: z.string().optional(),
-    profileImageUrl: z.string().optional(),
-    // Java-DTO вимагає role; старий сервіс його ігнорував — ми поважаємо (D3).
-    role: z.enum(['USER', 'SPECIALIST', 'ADMIN']).default('USER'),
+    // base64 без префікса "data:image/...;base64," — фронт шле файл, читаний через FileReader
+    profileImageBase64: z.string().optional(),
   })
   .refine((data) => data.password === data.repeatPassword, {
     message: 'Passwords do not match',

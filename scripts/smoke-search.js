@@ -23,18 +23,20 @@ async function register(email, role, extra) {
   });
 }
 
+const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_modules/@prisma/client');
+
 (async () => {
+  const p = new PrismaClient();
   const s = Date.now();
   await register(`u${s}@t.dev`, 'USER', { firstName: 'Plain', lastName: 'User', city: 'Kyiv' });
   const a = await register(`kyiv${s}@t.dev`, 'SPECIALIST', { firstName: 'Anna', lastName: 'Kyivska', city: 'Kyiv' });
   const b = await register(`lviv${s}@t.dev`, 'SPECIALIST', { firstName: 'Bohdan', lastName: 'Lvivsky', city: 'Lviv' });
 
-  // дати спеціалісту A досвід/рейтинг напряму в БД
-  const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_modules/@prisma/client');
-  const p = new PrismaClient();
-  await p.specialistProfile.update({ where: { userId: a.data.id }, data: { experience: 8, rating: 4.5 } });
-  await p.specialistProfile.update({ where: { userId: b.data.id }, data: { experience: 2, rating: 3 } });
-  await p.$disconnect();
+  // реєстрація завжди дає USER — підвищуємо до SPECIALIST напряму в БД (у проді це адмін)
+  for (const [u, data] of [[a, { experience: 8, rating: 4.5 }], [b, { experience: 2, rating: 3 }]]) {
+    await p.user.update({ where: { id: u.data.id }, data: { role: 'SPECIALIST' } });
+    await p.specialistProfile.create({ data: { userId: u.data.id, ...data } });
+  }
 
   const tok = (await call('POST', '/auth/login', { email: `u${s}@t.dev`, password: 'pass123' })).data.token;
 
@@ -70,13 +72,11 @@ async function register(email, role, extra) {
 
   // прибирання
   {
-    const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_modules/@prisma/client');
-    const p2 = new PrismaClient();
     const emails = [`u${s}@t.dev`, `kyiv${s}@t.dev`, `lviv${s}@t.dev`];
-    const ids = (await p2.user.findMany({ where: { email: { in: emails } }, select: { id: true } })).map((u) => u.id);
-    await p2.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
-    await p2.user.deleteMany({ where: { id: { in: ids } } });
-    await p2.$disconnect();
+    const ids = (await p.user.findMany({ where: { email: { in: emails } }, select: { id: true } })).map((u) => u.id);
+    await p.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
+    await p.user.deleteMany({ where: { id: { in: ids } } });
+    await p.$disconnect();
   }
 
   console.log(process.exitCode ? '\nSOME CHECKS FAILED' : '\nALL CHECKS PASSED');

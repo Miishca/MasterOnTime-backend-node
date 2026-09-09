@@ -26,9 +26,13 @@ function assert(c, m) { console.log(c ? `  PASS  ${m}` : `  FAIL  ${m}`); if (!c
 
   console.log('POST /auth/registration');
   let r = await call(FE, 'POST', '/auth/registration', {
-    email, password: 'pass123', repeatPassword: 'pass123', firstName: 'Proxy', lastName: 'T', address: addr, role: 'SPECIALIST',
+    email, password: 'pass123', repeatPassword: 'pass123', firstName: 'Proxy', lastName: 'T', address: addr,
   });
   assert(r.status === 201 && typeof r.data.id === 'number', `201 + numeric id (got ${r.status})`);
+
+  // підвищуємо до SPECIALIST напряму в БД, щоб перевірити /api/users/specialists
+  await p.user.update({ where: { id: r.data.id }, data: { role: 'SPECIALIST' } });
+  await p.specialistProfile.create({ data: { userId: r.data.id } });
 
   console.log('POST /auth/login');
   r = await call(FE, 'POST', '/auth/login', { email, password: 'pass123' });

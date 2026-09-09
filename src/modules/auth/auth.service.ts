@@ -15,6 +15,8 @@ export async function registerUser(input: RegistrationInput): Promise<UserRespon
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
 
+  // Публічна реєстрація завжди створює USER. Роль SPECIALIST видає лише
+  // адмін через PATCH /api/admin/users/:id/role.
   const user = await prisma.user.create({
     data: {
       email: input.email,
@@ -22,15 +24,14 @@ export async function registerUser(input: RegistrationInput): Promise<UserRespon
       firstName: input.firstName,
       lastName: input.lastName,
       phoneNumber: input.phoneNumber,
-      profileImage: input.profileImageUrl,
-      role: input.role,
+      profileImage: input.profileImageBase64
+        ? `data:image/png;base64,${input.profileImageBase64}`
+        : undefined,
+      role: 'USER',
       addressCountry: input.address.country,
       addressCity: input.address.city,
       addressStreet: input.address.street,
       addressZip: input.address.zip,
-      // Спеціалісту одразу заводимо профіль (D2) — інакше search/booking його не побачать.
-      specialistProfile:
-        input.role === 'SPECIALIST' ? { create: {} } : undefined,
     },
   });
 

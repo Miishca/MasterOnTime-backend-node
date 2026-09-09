@@ -30,6 +30,8 @@ const DOW = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', '
   const s = Date.now();
   const spec = await reg(`sc${s}@t.dev`, 'SPECIALIST');
   const cli = await reg(`sk${s}@t.dev`, 'USER');
+  await p.user.update({ where: { id: spec.id }, data: { role: 'SPECIALIST' } });
+  await p.specialistProfile.create({ data: { userId: spec.id } });
   const specTok = await login(`sc${s}@t.dev`);
   const cliTok = await login(`sk${s}@t.dev`);
 

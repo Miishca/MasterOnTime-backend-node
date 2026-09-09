@@ -68,5 +68,16 @@ async function register(email, role, extra) {
   r = await call('GET', '/api/specialists/search?city=Lviv&minRating=4', null, tok);
   assert(r.status === 200 && Array.isArray(r.data) && !r.data.some((u) => u.email === `lviv${s}@t.dev`), 'Lviv spec excluded by rating');
 
+  // прибирання
+  {
+    const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_modules/@prisma/client');
+    const p2 = new PrismaClient();
+    const emails = [`u${s}@t.dev`, `kyiv${s}@t.dev`, `lviv${s}@t.dev`];
+    const ids = (await p2.user.findMany({ where: { email: { in: emails } }, select: { id: true } })).map((u) => u.id);
+    await p2.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
+    await p2.user.deleteMany({ where: { id: { in: ids } } });
+    await p2.$disconnect();
+  }
+
   console.log(process.exitCode ? '\nSOME CHECKS FAILED' : '\nALL CHECKS PASSED');
 })();

@@ -103,5 +103,13 @@ function assert(cond, msg) {
   r = await call('GET', '/api/users/specialists');
   assert(r.status === 401, `401 (got ${r.status})`);
 
+  // прибирання тестових акаунтів
+  const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_modules/@prisma/client');
+  const p = new PrismaClient();
+  const ids = (await p.user.findMany({ where: { email: { in: [userEmail, specEmail] } }, select: { id: true } })).map((u) => u.id);
+  await p.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
+  await p.user.deleteMany({ where: { id: { in: ids } } });
+  await p.$disconnect();
+
   console.log(process.exitCode ? '\nSOME CHECKS FAILED' : '\nALL CHECKS PASSED');
 })();

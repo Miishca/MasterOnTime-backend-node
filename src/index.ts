@@ -6,6 +6,7 @@ import { authRouter } from './modules/auth/auth.routes';
 import { usersRouter } from './modules/users/users.routes';
 import { bookingRouter } from './modules/booking/booking.routes';
 import { reviewsRouter } from './modules/reviews/reviews.routes';
+import { scheduleRouter } from './modules/schedule/schedule.routes';
 import { searchRouter } from './modules/search/search.routes';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -29,6 +30,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/specialists', searchRouter);
 app.use('/api/bookings', bookingRouter);
 app.use('/api/reviews', reviewsRouter);
+app.use('/api/schedule', scheduleRouter);
 
 app.use(errorHandler);
 

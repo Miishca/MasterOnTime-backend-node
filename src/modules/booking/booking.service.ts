@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { DayOfWeek, Prisma } from '@prisma/client';
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
 import { notifications } from '../../lib/notifications';
@@ -21,6 +21,18 @@ const DEFAULT_DURATION_MIN = 60;
 const DAY_START_HOUR = 9;
 const DAY_END_HOUR = 18;
 const SLOT_STEP_MIN = 15;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+// Date.getDay(): 0 = Sunday .. 6 = Saturday  ->  Prisma DayOfWeek enum
+const WEEKDAY: DayOfWeek[] = [
+  'SUNDAY',
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+  'SATURDAY',
+];
 
 async function specialistProfileByUserId(userId: number) {
   const profile = await prisma.specialistProfile.findUnique({ where: { userId } });
@@ -67,21 +79,57 @@ function loadBooking(id: number) {
 export async function getAvailableTimeSlots(q: AvailableSlotsQuery): Promise<Date[]> {
   const profile = await specialistProfileByUserId(q.specialistId);
   const duration = await serviceDuration(q.serviceItemId);
-
-  const dayStart = new Date(`${q.date}T${String(DAY_START_HOUR).padStart(2, '0')}:00:00`);
-  const dayEnd = new Date(`${q.date}T${String(DAY_END_HOUR).padStart(2, '0')}:00:00`);
   const now = new Date();
 
+  // Робочі вікна дня:
+  //  - графік не налаштований узагалі -> дефолт 09:00–18:00 (сумісність до впровадження Фази 5)
+  //  - графік є, але на цей день тижня вікон немає -> спеціаліст цього дня не працює (порожньо)
+  const weekday = WEEKDAY[new Date(`${q.date}T12:00:00`).getDay()];
+  const allAvailability = await prisma.availability.findMany({
+    where: { specialistId: profile.userId },
+    orderBy: { startTime: 'asc' },
+  });
+  const windows =
+    allAvailability.length === 0
+      ? [
+          {
+            start: new Date(`${q.date}T${pad(DAY_START_HOUR)}:00:00`),
+            end: new Date(`${q.date}T${pad(DAY_END_HOUR)}:00:00`),
+          },
+        ]
+      : allAvailability
+          .filter((a) => a.dayOfWeek === weekday)
+          .map((a) => ({
+            start: new Date(`${q.date}T${a.startTime}:00`),
+            end: new Date(`${q.date}T${a.endTime}:00`),
+          }));
+
+  // Разові блоки недоступності (Unavailability), що перетинають цей день.
+  const dayStart = new Date(`${q.date}T00:00:00`);
+  const dayEnd = new Date(`${q.date}T23:59:59.999`);
+  const unavailable = await prisma.unavailability.findMany({
+    where: {
+      specialistId: profile.userId,
+      startTime: { lt: dayEnd },
+      endTime: { gt: dayStart },
+    },
+  });
+  const overlapsUnavailable = (s: Date, e: Date) =>
+    unavailable.some((u) => u.startTime < e && u.endTime > s);
+
   const slots: Date[] = [];
-  for (
-    let slotStart = new Date(dayStart);
-    new Date(slotStart.getTime() + duration * 60000) <= dayEnd;
-    slotStart = new Date(slotStart.getTime() + SLOT_STEP_MIN * 60000)
-  ) {
-    const slotEnd = new Date(slotStart.getTime() + duration * 60000);
-    if (slotStart <= now) continue;
-    if (await hasConflict(profile.id, slotStart, slotEnd)) continue;
-    slots.push(new Date(slotStart));
+  for (const w of windows) {
+    for (
+      let slotStart = new Date(w.start);
+      new Date(slotStart.getTime() + duration * 60000) <= w.end;
+      slotStart = new Date(slotStart.getTime() + SLOT_STEP_MIN * 60000)
+    ) {
+      const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+      if (slotStart <= now) continue;
+      if (overlapsUnavailable(slotStart, slotEnd)) continue;
+      if (await hasConflict(profile.id, slotStart, slotEnd)) continue;
+      slots.push(new Date(slotStart));
+    }
   }
   return slots;
 }

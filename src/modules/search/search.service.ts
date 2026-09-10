@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
 import { PublicSpecialistDto, toPublicSpecialistDto } from './specialist.mapper';
-import { SearchQuery } from './search.schemas';
+import { SearchQuery, SpecialistProfileUpdate } from './search.schemas';
 
 const BASE_WHERE: Prisma.UserWhereInput = {
   role: 'SPECIALIST',
@@ -31,6 +31,40 @@ export async function getSpecialistById(id: number): Promise<PublicSpecialistDto
   });
   if (!user) throw new HttpError(404, 'Specialist not found');
   return toPublicSpecialistDto(user);
+}
+
+// Спільно для GET/PUT /api/specialists/me та PATCH /api/admin/users/:id/specialist-profile.
+async function requireSpecialist(userId: number) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, ...withProfile });
+  if (!user || user.role !== 'SPECIALIST' || !user.specialistProfile) {
+    throw new HttpError(404, 'Specialist profile not found');
+  }
+  return user;
+}
+
+// GET /api/specialists/me
+export async function getMySpecialistProfile(userId: number): Promise<PublicSpecialistDto> {
+  return toPublicSpecialistDto(await requireSpecialist(userId));
+}
+
+// PUT /api/specialists/me  та  PATCH /api/admin/users/:id/specialist-profile
+export async function updateSpecialistProfile(
+  userId: number,
+  input: SpecialistProfileUpdate,
+): Promise<PublicSpecialistDto> {
+  await requireSpecialist(userId);
+  await prisma.specialistProfile.update({
+    where: { userId },
+    data: {
+      ...(input.profession !== undefined ? { profession: input.profession } : {}),
+      ...(input.about !== undefined ? { about: input.about } : {}),
+      ...(input.price !== undefined ? { price: input.price } : {}),
+      ...(input.experience !== undefined ? { experience: input.experience } : {}),
+      ...(input.tags !== undefined ? { tags: input.tags } : {}),
+    },
+  });
+  const updated = await prisma.user.findUniqueOrThrow({ where: { id: userId }, ...withProfile });
+  return toPublicSpecialistDto(updated);
 }
 
 // GET /api/specialists/search — фільтрований пошук (публічно)

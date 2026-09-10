@@ -1,10 +1,17 @@
 import { NextFunction, Request, Response, Router } from 'express';
+import { AuthedRequest, requireAuth, requireRole } from '../../middleware/auth';
 import { HttpError } from '../../middleware/errorHandler';
-import { searchQuerySchema } from './search.schemas';
-import { getSpecialistById, listSpecialists, searchSpecialists } from './search.service';
+import { searchQuerySchema, specialistProfileUpdateSchema } from './search.schemas';
+import {
+  getMySpecialistProfile,
+  getSpecialistById,
+  listSpecialists,
+  searchSpecialists,
+  updateSpecialistProfile,
+} from './search.service';
 
-// Публічний роутер — гість може переглядати каталог спеціалістів без входу.
-// Віддає лише PublicSpecialistDto (без контактів / адреси / ДН).
+// /api/specialists — публічний каталог (гість бачить лише PublicSpecialistDto,
+// без контактів / адреси / ДН) + self-service профіль для самого спеціаліста.
 export const searchRouter = Router();
 
 const wrap =
@@ -13,7 +20,7 @@ const wrap =
     fn(req, res).catch(next);
   };
 
-// GET /api/specialists
+// GET /api/specialists  — публічно
 searchRouter.get(
   '/',
   wrap(async (_req, res) => {
@@ -21,7 +28,7 @@ searchRouter.get(
   }),
 );
 
-// GET /api/specialists/search?serviceName=&firstName=&city=&minExperience=&minRating=
+// GET /api/specialists/search  — публічно
 searchRouter.get(
   '/search',
   wrap(async (req, res) => {
@@ -30,7 +37,28 @@ searchRouter.get(
   }),
 );
 
-// GET /api/specialists/:id  (має бути ПІСЛЯ /search)
+// GET /api/specialists/me  — власний профіль спеціаліста (має бути ПЕРЕД /:id)
+searchRouter.get(
+  '/me',
+  requireAuth,
+  requireRole('SPECIALIST'),
+  wrap(async (req, res) => {
+    res.json(await getMySpecialistProfile((req as AuthedRequest).userId!));
+  }),
+);
+
+// PUT /api/specialists/me  — спеціаліст редагує свій профіль
+searchRouter.put(
+  '/me',
+  requireAuth,
+  requireRole('SPECIALIST'),
+  wrap(async (req, res) => {
+    const input = specialistProfileUpdateSchema.parse(req.body);
+    res.json(await updateSpecialistProfile((req as AuthedRequest).userId!, input));
+  }),
+);
+
+// GET /api/specialists/:id  — публічно (ПІСЛЯ /search та /me)
 searchRouter.get(
   '/:id',
   wrap(async (req, res) => {

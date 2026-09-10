@@ -16,3 +16,17 @@ export const searchQuerySchema = z.object({
 });
 
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
+
+// Поля профілю спеціаліста, які можна редагувати (self-service або адмін).
+// rating сюди не входить — рахується з відгуків.
+export const specialistProfileUpdateSchema = z
+  .object({
+    profession: z.string().trim().max(120).optional(),
+    about: z.string().trim().max(2000).optional(),
+    price: z.coerce.number().nonnegative().max(1_000_000).optional(),
+    experience: z.coerce.number().int().nonnegative().max(80).optional(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+  })
+  .strict();
+
+export type SpecialistProfileUpdate = z.infer<typeof specialistProfileUpdateSchema>;

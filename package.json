@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "status": "node scripts/status.js",
-    "smoke": "node scripts/smoke.js && node scripts/smoke-search.js && node scripts/smoke-booking.js && node scripts/smoke-reviews.js && node scripts/smoke-schedule.js && node scripts/smoke-admin.js && node scripts/smoke-proxy.js",
+    "smoke": "node scripts/smoke.js && node scripts/smoke-search.js && node scripts/smoke-booking.js && node scripts/smoke-reviews.js && node scripts/smoke-schedule.js && node scripts/smoke-admin.js && node scripts/smoke-specialist-profile.js && node scripts/smoke-proxy.js",
     "seed:admin": "node scripts/seed-admin.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev"

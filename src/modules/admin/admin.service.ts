@@ -1,4 +1,4 @@
-import { Prisma, Role, User } from '@prisma/client';
+import { Prisma, Role, SpecialistProfile, User } from '@prisma/client';
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
 import { ListUsersQuery, SetRoleInput } from './admin.schemas';
@@ -15,9 +15,25 @@ export interface AdminUserRow {
   isDeleted: boolean;
   createdAt: Date;
   hasSpecialistProfile: boolean;
+  specialistProfile: {
+    profession: string;
+    price: string;
+    about: string;
+    experience: number;
+    tags: string[];
+  } | null;
 }
 
-function toAdminRow(u: User & { specialistProfile: { id: number } | null }): AdminUserRow {
+const PROFILE_SELECT = {
+  select: { id: true, profession: true, price: true, about: true, experience: true, tags: true },
+} as const;
+
+type ProfileSlice = Pick<
+  SpecialistProfile,
+  'profession' | 'price' | 'about' | 'experience' | 'tags'
+>;
+
+function toAdminRow(u: User & { specialistProfile: ProfileSlice | null }): AdminUserRow {
   return {
     id: u.id,
     email: u.email,
@@ -29,6 +45,15 @@ function toAdminRow(u: User & { specialistProfile: { id: number } | null }): Adm
     isDeleted: u.isDeleted,
     createdAt: u.createdAt,
     hasSpecialistProfile: u.specialistProfile !== null,
+    specialistProfile: u.specialistProfile
+      ? {
+          profession: u.specialistProfile.profession,
+          price: u.specialistProfile.price.toString(),
+          about: u.specialistProfile.about,
+          experience: u.specialistProfile.experience,
+          tags: u.specialistProfile.tags,
+        }
+      : null,
   };
 }
 
@@ -49,7 +74,7 @@ export async function listUsers(q: ListUsersQuery): Promise<AdminUserRow[]> {
   const users = await prisma.user.findMany({
     where,
     orderBy: { id: 'asc' },
-    include: { specialistProfile: { select: { id: true } } },
+    include: { specialistProfile: PROFILE_SELECT },
     take: 100,
   });
 
@@ -95,7 +120,7 @@ export async function setUserRole(
 
   const updated = await prisma.user.findUniqueOrThrow({
     where: { id: targetUserId },
-    include: { specialistProfile: { select: { id: true } } },
+    include: { specialistProfile: PROFILE_SELECT },
   });
   return toAdminRow(updated);
 }

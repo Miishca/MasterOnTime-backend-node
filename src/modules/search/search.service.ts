@@ -1,7 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
-import { PublicSpecialistDto, toPublicSpecialistDto } from './specialist.mapper';
+import {
+  PublicReviewDto,
+  PublicSpecialistDto,
+  toPublicSpecialistDto,
+} from './specialist.mapper';
 import { SearchQuery, SpecialistProfileUpdate } from './search.schemas';
 
 const BASE_WHERE: Prisma.UserWhereInput = {
@@ -31,6 +35,29 @@ export async function getSpecialistById(id: number): Promise<PublicSpecialistDto
   });
   if (!user) throw new HttpError(404, 'Specialist not found');
   return toPublicSpecialistDto(user);
+}
+
+// GET /api/specialists/:id/reviews — видимі відгуки спеціаліста (публічно)
+export async function getSpecialistReviews(userId: number): Promise<PublicReviewDto[]> {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, ...BASE_WHERE },
+    include: { specialistProfile: { select: { id: true } } },
+  });
+  if (!user?.specialistProfile) throw new HttpError(404, 'Specialist not found');
+
+  const reviews = await prisma.review.findMany({
+    where: { specialistId: user.specialistProfile.id, status: 'VISIBLE' },
+    orderBy: { createdAt: 'desc' },
+    include: { author: { select: { firstName: true, lastName: true } } },
+  });
+
+  return reviews.map((r) => ({
+    id: r.id,
+    rating: r.rating,
+    comment: r.comment,
+    createdAt: r.createdAt,
+    authorName: `${r.author.firstName} ${r.author.lastName}`.trim(),
+  }));
 }
 
 // Спільно для GET/PUT /api/specialists/me та PATCH /api/admin/users/:id/specialist-profile.

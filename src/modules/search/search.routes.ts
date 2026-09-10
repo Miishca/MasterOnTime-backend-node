@@ -5,6 +5,7 @@ import { searchQuerySchema, specialistProfileUpdateSchema } from './search.schem
 import {
   getMySpecialistProfile,
   getSpecialistById,
+  getSpecialistReviews,
   listSpecialists,
   searchSpecialists,
   updateSpecialistProfile,
@@ -65,5 +66,15 @@ searchRouter.get(
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) throw new HttpError(400, 'Invalid specialist id');
     res.json(await getSpecialistById(id));
+  }),
+);
+
+// GET /api/specialists/:id/reviews — публічно
+searchRouter.get(
+  '/:id/reviews',
+  wrap(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new HttpError(400, 'Invalid specialist id');
+    res.json(await getSpecialistReviews(id));
   }),
 );

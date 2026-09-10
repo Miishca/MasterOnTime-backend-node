@@ -34,3 +34,12 @@ export function toPublicSpecialistDto(user: UserWithProfile): PublicSpecialistDt
     profileImageUrl: user.profileImage,
   };
 }
+
+// Публічний відгук на сторінці спеціаліста — без id клієнта / бронювання.
+export interface PublicReviewDto {
+  id: number;
+  rating: number;
+  comment: string | null;
+  createdAt: Date;
+  authorName: string;
+}

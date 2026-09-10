@@ -86,6 +86,12 @@ const login = async (email) => (await call('POST', '/auth/login', { email, passw
   r = await call('GET', '/api/reviews/specialist', null, cliTok);
   assert(r.status === 403, `client 403 (got ${r.status})`);
 
+  console.log('9b) GET /api/specialists/:id/reviews (public, no PII)');
+  r = await call('GET', `/api/specialists/${spec.id}/reviews`);
+  assert(r.status === 200 && r.data.some((x) => x.id === rev1), 'public list has the review, no token');
+  assert(r.data.every((x) => 'authorName' in x && !('authorId' in x) && !('bookingId' in x)), 'authorName only, no ids');
+  assert((await call('GET', '/api/specialists/99999999/reviews')).status === 404, 'missing specialist -> 404');
+
   console.log('10) 2nd review (rating 3) -> average becomes 4');
   r = await call('POST', '/api/reviews', { bookingId: b2.id, rating: 3, comment: 'ok' }, cliTok);
   assert(r.status === 201, `201 (got ${r.status})`);

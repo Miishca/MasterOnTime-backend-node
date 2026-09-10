@@ -46,11 +46,21 @@ async function myProfileId(userId: number): Promise<number> {
   return (await specialistProfileByUserId(userId)).id;
 }
 
-async function serviceDuration(serviceItemId?: number): Promise<number> {
-  if (!serviceItemId) return DEFAULT_DURATION_MIN;
-  const item = await prisma.categoryItem.findUnique({ where: { id: serviceItemId } });
-  if (!item) throw new HttpError(404, 'Service not found');
-  return item.durationMinutes;
+// Резолвимо обрану послугу і перевіряємо, що вона належить саме цьому спеціалісту.
+// Повертаємо тривалість (для сітки слотів) і ціну (для priceAtBooking).
+async function resolveService(
+  specialistUserId: number,
+  serviceItemId?: number,
+): Promise<{ durationMinutes: number; price: number | null }> {
+  if (!serviceItemId) return { durationMinutes: DEFAULT_DURATION_MIN, price: null };
+  const item = await prisma.categoryItem.findUnique({
+    where: { id: serviceItemId },
+    include: { category: { select: { specialistId: true } } },
+  });
+  if (!item || item.category.specialistId !== specialistUserId) {
+    throw new HttpError(404, 'Service not found');
+  }
+  return { durationMinutes: item.durationMinutes, price: item.price };
 }
 
 // Активний конфлікт: CONFIRMED або BLOCKED бронювання, що перетинається за часом.
@@ -78,7 +88,10 @@ function loadBooking(id: number) {
 
 export async function getAvailableTimeSlots(q: AvailableSlotsQuery): Promise<Date[]> {
   const profile = await specialistProfileByUserId(q.specialistId);
-  const duration = await serviceDuration(q.serviceItemId);
+  const { durationMinutes: duration } = await resolveService(
+    q.specialistId,
+    q.serviceItemId,
+  );
   const now = new Date();
 
   // Робочі вікна дня:
@@ -147,7 +160,10 @@ export async function bookTimeSlot(
   }
   const profile = specialistUser.specialistProfile;
 
-  const duration = await serviceDuration(input.serviceItemId);
+  const { durationMinutes: duration, price: servicePrice } = await resolveService(
+    specialistUser.id,
+    input.serviceItemId,
+  );
   const start = input.startTime;
   const end = new Date(start.getTime() + duration * 60000);
 
@@ -166,7 +182,8 @@ export async function bookTimeSlot(
       startTime: start,
       endTime: end,
       status: STATUS.CONFIRMED,
-      priceAtBooking: profile.price,
+      // Ціна конкретної послуги, якщо обрана; інакше базова ставка спеціаліста.
+      priceAtBooking: servicePrice ?? profile.price,
     },
     include: bookingInclude,
   });

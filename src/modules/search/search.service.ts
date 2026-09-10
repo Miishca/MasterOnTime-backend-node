@@ -121,7 +121,23 @@ export async function searchSpecialists(q: SearchQuery): Promise<PublicSpecialis
       : {}),
   };
 
-  // TODO(Фаза 6): serviceName + categories — фільтрація по Category/CategoryItem.
+  // serviceName / categories — фільтр по власних Category / CategoryItem спеціаліста.
+  // serviceName шукає в назві послуги, categories — точний збіг назви категорії.
+  // (Java робив INNER JOIN і відсікав спеціалістів без категорій; тут join діє
+  // лише коли фільтр реально заданий.)
+  const categoryCond: Prisma.CategoryWhereInput = {};
+  if (q.categories && q.categories.length > 0) {
+    categoryCond.name = { in: q.categories, mode: 'insensitive' };
+  }
+  if (q.serviceName) {
+    categoryCond.items = {
+      some: { name: { contains: q.serviceName, mode: 'insensitive' } },
+    };
+  }
+  if (Object.keys(categoryCond).length > 0) {
+    where.categories = { some: categoryCond };
+  }
+
   const rows = await prisma.user.findMany({ where, orderBy: { id: 'asc' }, ...withProfile });
   return rows.map(toPublicSpecialistDto);
 }

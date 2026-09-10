@@ -9,6 +9,7 @@ import { reviewsRouter } from './modules/reviews/reviews.routes';
 import { scheduleRouter } from './modules/schedule/schedule.routes';
 import { adminRouter } from './modules/admin/admin.routes';
 import { searchRouter } from './modules/search/search.routes';
+import { categoriesRouter } from './modules/categories/categories.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/specialists', searchRouter);
 app.use('/api/bookings', bookingRouter);
 app.use('/api/reviews', reviewsRouter);
 app.use('/api/schedule', scheduleRouter);
+app.use('/api/specialist/categories', categoriesRouter);
 app.use('/api/admin', adminRouter);
 
 app.use(errorHandler);

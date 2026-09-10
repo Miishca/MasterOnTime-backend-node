@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 // Query-параметри GET /api/specialists/search (відповідає Java SearchController).
-// serviceName та categories поки приймаються, але не застосовуються — потребують
-// таблиць Category/CategoryItem (Фаза 6).
+// serviceName шукає в назвах послуг (CategoryItem.name), categories — по назвах
+// категорій (Category.name).
 export const searchQuerySchema = z.object({
   serviceName: z.string().trim().min(1).optional(),
   firstName: z.string().trim().min(1).optional(),

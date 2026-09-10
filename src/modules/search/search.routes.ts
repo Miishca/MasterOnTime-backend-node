@@ -10,6 +10,7 @@ import {
   searchSpecialists,
   updateSpecialistProfile,
 } from './search.service';
+import { getPublicServices } from '../categories/categories.service';
 
 // /api/specialists — публічний каталог (гість бачить лише PublicSpecialistDto,
 // без контактів / адреси / ДН) + self-service профіль для самого спеціаліста.
@@ -76,5 +77,15 @@ searchRouter.get(
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) throw new HttpError(400, 'Invalid specialist id');
     res.json(await getSpecialistReviews(id));
+  }),
+);
+
+// GET /api/specialists/:id/services — публічно (категорії + послуги для бронювання)
+searchRouter.get(
+  '/:id/services',
+  wrap(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new HttpError(400, 'Invalid specialist id');
+    res.json(await getPublicServices(id));
   }),
 );

@@ -1,14 +1,35 @@
-import { Prisma, Role } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
-import { toUserResponseDto, UserResponseDto } from '../users/user.mapper';
 import { ListUsersQuery, SetRoleInput } from './admin.schemas';
 
-export interface AdminUserRow extends UserResponseDto {
+// Легкий рядок для адмін-таблиці — без base64-фото / адреси / ДН.
+export interface AdminUserRow {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  city: string | null;
+  phoneNumber: string | null;
   role: Role;
   isDeleted: boolean;
   createdAt: Date;
   hasSpecialistProfile: boolean;
+}
+
+function toAdminRow(u: User & { specialistProfile: { id: number } | null }): AdminUserRow {
+  return {
+    id: u.id,
+    email: u.email,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    city: u.addressCity,
+    phoneNumber: u.phoneNumber,
+    role: u.role,
+    isDeleted: u.isDeleted,
+    createdAt: u.createdAt,
+    hasSpecialistProfile: u.specialistProfile !== null,
+  };
 }
 
 export async function listUsers(q: ListUsersQuery): Promise<AdminUserRow[]> {
@@ -32,13 +53,7 @@ export async function listUsers(q: ListUsersQuery): Promise<AdminUserRow[]> {
     take: 100,
   });
 
-  return users.map((u) => ({
-    ...toUserResponseDto(u),
-    role: u.role,
-    isDeleted: u.isDeleted,
-    createdAt: u.createdAt,
-    hasSpecialistProfile: u.specialistProfile !== null,
-  }));
+  return users.map(toAdminRow);
 }
 
 // PATCH /api/admin/users/:id/role — підвищити/понизити роль.
@@ -82,11 +97,5 @@ export async function setUserRole(
     where: { id: targetUserId },
     include: { specialistProfile: { select: { id: true } } },
   });
-  return {
-    ...toUserResponseDto(updated),
-    role: updated.role,
-    isDeleted: updated.isDeleted,
-    createdAt: updated.createdAt,
-    hasSpecialistProfile: updated.specialistProfile !== null,
-  };
+  return toAdminRow(updated);
 }

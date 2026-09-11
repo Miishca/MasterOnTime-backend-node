@@ -55,6 +55,12 @@ const login = async (email, pw = 'pass123') => (await call('POST', '/auth/login'
   const db = await p.specialistProfile.findUnique({ where: { userId: spec.id } });
   assert(Number(db.price) === 120 && db.experience === 9 && db.tags.join() === 'pipes,boilers', 'persisted');
 
+  console.log('3b) tags are normalized to lower-case on save (so search-by-tag is case-insensitive)');
+  r = await call('PUT', '/api/specialists/me', { tags: ['Pipes', 'BOILERS', 'Emergency'] }, specTok);
+  assert(r.status === 200 && r.data.tags.join() === 'pipes,boilers,emergency', 'response tags lower-cased');
+  const db2 = await p.specialistProfile.findUnique({ where: { userId: spec.id } });
+  assert(db2.tags.join() === 'pipes,boilers,emergency', 'persisted lower-case');
+
   console.log('3) partial update — only touches provided fields');
   r = await call('PUT', '/api/specialists/me', { price: 150 }, specTok);
   assert(r.status === 200 && r.data.price === '150' && r.data.profession === 'Master Plumber', 'profession untouched');

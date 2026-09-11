@@ -31,7 +31,11 @@ async function register(email, extra) {
   const b = (await register(`lviv${s}@t.dev`, { firstName: 'Bohdan', lastName: 'Lvivsky', city: 'Lviv' })).data;
   const hidden = (await register(`hid${s}@t.dev`, { firstName: 'Hidden', lastName: 'One', city: 'Kyiv' })).data;
 
-  for (const [u, data] of [[a, { experience: 8, rating: 4.5 }], [b, { experience: 2, rating: 3 }], [hidden, {}]]) {
+  for (const [u, data] of [
+    [a, { experience: 8, rating: 4.5, tags: ['plumbing', 'boilers'] }],
+    [b, { experience: 2, rating: 3 }],
+    [hidden, {}],
+  ]) {
     await p.user.update({ where: { id: u.id }, data: { role: 'SPECIALIST' } });
     await p.specialistProfile.create({ data: { userId: u.id, profession: 'Tutor', price: 30, ...data } });
   }
@@ -59,6 +63,14 @@ async function register(email, extra) {
   assert(r.data.some((x) => x.id === a.id) && !r.data.some((x) => x.id === b.id), 'minRating filter');
   r = await call('GET', '/api/specialists/search?firstName=anna');
   assert(r.data.length >= 1 && r.data.every((x) => /anna/i.test(x.firstName)), 'firstName filter');
+
+  console.log('3b) tags filter — case-insensitive, matches any of the given tags');
+  r = await call('GET', '/api/specialists/search?tags=plumbing');
+  assert(r.data.some((x) => x.id === a.id) && !r.data.some((x) => x.id === b.id), 'tags=plumbing -> only Anna');
+  r = await call('GET', '/api/specialists/search?tags=PLUMBING');
+  assert(r.data.some((x) => x.id === a.id), 'tags query is case-insensitive');
+  r = await call('GET', '/api/specialists/search?tags=nonexistent-tag-xyz');
+  assert(Array.isArray(r.data) && r.data.length === 0, 'unknown tag -> empty');
 
   console.log('4) search with no filter -> full list (not 400)');
   r = await call('GET', '/api/specialists/search');

@@ -101,6 +101,7 @@ export async function searchSpecialists(q: SearchQuery): Promise<PublicSpecialis
     !q.firstName &&
     !q.city &&
     (!q.categories || q.categories.length === 0) &&
+    (!q.tags || q.tags.length === 0) &&
     q.minExperience === undefined &&
     q.minRating === undefined;
 
@@ -111,6 +112,9 @@ export async function searchSpecialists(q: SearchQuery): Promise<PublicSpecialis
   const profileFilter: Prisma.SpecialistProfileWhereInput = {};
   if (q.minExperience !== undefined) profileFilter.experience = { gte: q.minExperience };
   if (q.minRating !== undefined) profileFilter.rating = { gte: q.minRating };
+  // tags — вільні мітки, які спеціаліст сам додає собі в профілі (не плутати
+  // з Category/CategoryItem — це справжні "послуги", а tags — просто ярлики).
+  if (q.tags && q.tags.length > 0) profileFilter.tags = { hasSome: q.tags };
 
   const where: Prisma.UserWhereInput = {
     ...BASE_WHERE,

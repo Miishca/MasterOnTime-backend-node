@@ -10,6 +10,7 @@ import {
   rotateRefreshToken,
 } from '../../lib/refreshTokens';
 import { toUserResponseDto, UserResponseDto } from '../users/user.mapper';
+import { passwordResetEmail, sendEmail } from '../../lib/email';
 import { LoginInput, RegistrationInput } from './auth.schemas';
 
 const SALT_ROUNDS = 10;
@@ -89,11 +90,12 @@ const hashToken = (raw: string) => crypto.createHash('sha256').update(raw).diges
 
 // POST /auth/forgot-password — завжди відповідає успіхом, навіть якщо email не
 // існує (без цього можна перебором дізнатись, які email зареєстровані).
-// Немає SMTP/email-сервісу — "лист" іде в лог сервера, той самий підхід, що й
-// lib/notifications.ts для бронювань. Токен зберігається лише як SHA-256 хеш.
-// Повертає сирий токен ЛИШЕ як зручність для дев-режиму (route вирішує, чи
-// показувати його в відповіді — див. auth.routes.ts); зовнішній виклик не
-// повинен покладатись на це значення в проді.
+// Реальний лист (Resend) — але sandbox-домен onboarding@resend.dev може
+// слати лише на email власника акаунта Resend, тому для будь-якої іншої
+// адреси send мовчки не вдасться (див. lib/email.ts). Токен зберігається
+// лише як SHA-256 хеш. Повертає сирий токен ЛИШЕ як зручність для дев-режиму
+// (route вирішує, чи показувати його в відповіді — див. auth.routes.ts) —
+// це підстраховка, поки не всі email реально доходять.
 export async function requestPasswordReset(email: string): Promise<string | null> {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || user.isDeleted) return null;
@@ -107,11 +109,10 @@ export async function requestPasswordReset(email: string): Promise<string | null
     },
   });
 
-  // eslint-disable-next-line no-console
-  console.log(
-    `[password-reset stub] no email service configured — would send to ${email}: ` +
-      `reset token = ${rawToken} (expires in 1h)`,
-  );
+  const resetLink = `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/reset-password?token=${rawToken}`;
+  const { subject, html } = passwordResetEmail(resetLink);
+  await sendEmail(email, subject, html);
+
   return rawToken;
 }
 

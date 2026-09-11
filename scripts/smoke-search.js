@@ -32,8 +32,8 @@ async function register(email, extra) {
   const hidden = (await register(`hid${s}@t.dev`, { firstName: 'Hidden', lastName: 'One', city: 'Kyiv' })).data;
 
   for (const [u, data] of [
-    [a, { experience: 8, rating: 4.5, tags: ['plumbing', 'boilers'] }],
-    [b, { experience: 2, rating: 3 }],
+    [a, { experience: 8, rating: 4.5, tags: ['plumbing', 'boilers'], industry: 'HOME_GARDEN' }],
+    [b, { experience: 2, rating: 3, industry: 'BUSINESS_SERVICES' }],
     [hidden, {}],
   ]) {
     await p.user.update({ where: { id: u.id }, data: { role: 'SPECIALIST' } });
@@ -71,6 +71,11 @@ async function register(email, extra) {
   assert(r.data.some((x) => x.id === a.id), 'tags query is case-insensitive');
   r = await call('GET', '/api/specialists/search?tags=nonexistent-tag-xyz');
   assert(Array.isArray(r.data) && r.data.length === 0, 'unknown tag -> empty');
+
+  console.log('3c) industry filter — one of the 5 fixed values, exact match');
+  r = await call('GET', '/api/specialists/search?industry=HOME_GARDEN');
+  assert(r.data.some((x) => x.id === a.id) && !r.data.some((x) => x.id === b.id), 'industry=HOME_GARDEN -> only Anna');
+  assert((await call('GET', '/api/specialists/search?industry=NOT_REAL')).status === 400, 'invalid industry -> 400');
 
   console.log('4) search with no filter -> full list (not 400)');
   r = await call('GET', '/api/specialists/search');

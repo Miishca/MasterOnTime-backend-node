@@ -61,6 +61,14 @@ const login = async (email, pw = 'pass123') => (await call('POST', '/auth/login'
   const db2 = await p.specialistProfile.findUnique({ where: { userId: spec.id } });
   assert(db2.tags.join() === 'pipes,boilers,emergency', 'persisted lower-case');
 
+  console.log('3c) industry — set, invalid value rejected, clear with null');
+  r = await call('PUT', '/api/specialists/me', { industry: 'HEALTH_WELLBEING' }, specTok);
+  assert(r.status === 200 && r.data.industry === 'HEALTH_WELLBEING', 'industry set');
+  assert((await call('GET', `/api/specialists/${spec.id}`)).data.industry === 'HEALTH_WELLBEING', 'shows up in public DTO');
+  assert((await call('PUT', '/api/specialists/me', { industry: 'NOT_A_REAL_ONE' }, specTok)).status === 400, 'unknown industry -> 400');
+  r = await call('PUT', '/api/specialists/me', { industry: null }, specTok);
+  assert(r.status === 200 && r.data.industry === null, 'industry cleared with null');
+
   console.log('3) partial update — only touches provided fields');
   r = await call('PUT', '/api/specialists/me', { price: 150 }, specTok);
   assert(r.status === 200 && r.data.price === '150' && r.data.profession === 'Master Plumber', 'profession untouched');

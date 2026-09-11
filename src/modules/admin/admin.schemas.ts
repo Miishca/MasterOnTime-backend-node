@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { industrySchema } from '../search/search.schemas';
 
 // PATCH /api/admin/users/:id/role
 // При підвищенні до SPECIALIST адмін може одразу задати поля профілю.
@@ -11,6 +12,7 @@ export const setRoleSchema = z.object({
       price: z.coerce.number().nonnegative().optional(),
       experience: z.coerce.number().int().nonnegative().optional(),
       tags: z.array(z.string()).optional(),
+      industry: industrySchema.nullable().optional(),
     })
     .optional(),
 });

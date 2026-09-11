@@ -45,15 +45,19 @@ model User {
 }
 
 model SpecialistProfile {
-  id         Int     @id @default(autoincrement())
-  user       User    @relation(fields: [userId], references: [id])
-  userId     Int     @unique
-  profession String  @default("")
-  about      String  @default("")
-  price      Decimal @default(0) @db.Decimal(10, 2)
+  id         Int       @id @default(autoincrement())
+  user       User      @relation(fields: [userId], references: [id])
+  userId     Int       @unique
+  profession String    @default("")
+  about      String    @default("")
+  price      Decimal   @default(0) @db.Decimal(10, 2)
   tags       String[]
-  experience Int     @default(0)
-  rating     Float   @default(0)
+  experience Int       @default(0)
+  rating     Float     @default(0)
+  // Одна з 5 фіксованих "вітринних" індустрій для навігації по /people —
+  // окремо від Category/CategoryItem (це конкретні бронювані послуги, які
+  // спеціаліст називає довільно). null, доки спеціаліст її не обрав.
+  industry   Industry?
 
   bookingsAsSpecialist Booking[] @relation("SpecialistBookings")
   reviewsReceived      Review[]  @relation("ReviewTarget")
@@ -171,6 +175,16 @@ enum ReviewStatus {
   EDITED
   HIDDEN
   DELETED
+}
+
+// 5 фіксованих "вітринних" категорій показаних на /services та /people —
+// навмисно окремо від Category/CategoryItem (див. SpecialistProfile.industry).
+enum Industry {
+  HOME_GARDEN
+  HEALTH_WELLBEING
+  WEDDINGS_EVENTS
+  BUSINESS_SERVICES
+  LESSONS_TRAINING
 }
 
 enum DayOfWeek {

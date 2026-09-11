@@ -1,4 +1,4 @@
-import { SpecialistProfile, User } from '@prisma/client';
+import { Industry, SpecialistProfile, User } from '@prisma/client';
 
 type UserWithProfile = User & { specialistProfile: SpecialistProfile | null };
 
@@ -16,6 +16,7 @@ export interface PublicSpecialistDto {
   tags: string[];
   price: string;
   profileImageUrl: string | null;
+  industry: Industry | null;
 }
 
 export function toPublicSpecialistDto(user: UserWithProfile): PublicSpecialistDto {
@@ -32,6 +33,7 @@ export function toPublicSpecialistDto(user: UserWithProfile): PublicSpecialistDt
     tags: p?.tags ?? [],
     price: p ? p.price.toString() : '0',
     profileImageUrl: user.profileImage,
+    industry: p?.industry ?? null,
   };
 }
 

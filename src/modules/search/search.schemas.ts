@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+// Тримати руками синхронізованим з enum Industry у schema.prisma — 5 фіксованих
+// "вітринних" індустрій (окремо від Category/CategoryItem, які спеціаліст
+// називає довільно).
+export const INDUSTRY_VALUES = [
+  'HOME_GARDEN',
+  'HEALTH_WELLBEING',
+  'WEDDINGS_EVENTS',
+  'BUSINESS_SERVICES',
+  'LESSONS_TRAINING',
+] as const;
+export const industrySchema = z.enum(INDUSTRY_VALUES);
+
 // Довільний список рядків із query (`?tags=a&tags=b` або `?tags=a`) ->
 // нормалізований масив у нижньому регістрі (теги завжди зберігаються/шукаються
 // в lower-case, щоб порівняння не залежало від регістру введення).
@@ -23,6 +35,7 @@ export const searchQuerySchema = z.object({
     .transform((v) => (Array.isArray(v) ? v : [v]))
     .optional(),
   tags: stringListLower.optional(),
+  industry: industrySchema.optional(),
   minExperience: z.coerce.number().int().min(0).optional(),
   minRating: z.coerce.number().min(0).max(5).optional(),
 });
@@ -43,6 +56,8 @@ export const specialistProfileUpdateSchema = z
       .array(z.string().trim().min(1).max(40).transform((s) => s.toLowerCase()))
       .max(20)
       .optional(),
+    // null = прибрати індустрію (не плутати з undefined = не чіпати поле).
+    industry: industrySchema.nullable().optional(),
   })
   .strict();
 

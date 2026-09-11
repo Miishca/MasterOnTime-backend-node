@@ -1,4 +1,4 @@
-import { Prisma, Role, SpecialistProfile, User } from '@prisma/client';
+import { Industry, Prisma, Role, SpecialistProfile, User } from '@prisma/client';
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
 import { ListUsersQuery, SetRoleInput } from './admin.schemas';
@@ -21,16 +21,25 @@ export interface AdminUserRow {
     about: string;
     experience: number;
     tags: string[];
+    industry: Industry | null;
   } | null;
 }
 
 const PROFILE_SELECT = {
-  select: { id: true, profession: true, price: true, about: true, experience: true, tags: true },
+  select: {
+    id: true,
+    profession: true,
+    price: true,
+    about: true,
+    experience: true,
+    tags: true,
+    industry: true,
+  },
 } as const;
 
 type ProfileSlice = Pick<
   SpecialistProfile,
-  'profession' | 'price' | 'about' | 'experience' | 'tags'
+  'profession' | 'price' | 'about' | 'experience' | 'tags' | 'industry'
 >;
 
 function toAdminRow(u: User & { specialistProfile: ProfileSlice | null }): AdminUserRow {
@@ -52,6 +61,7 @@ function toAdminRow(u: User & { specialistProfile: ProfileSlice | null }): Admin
           about: u.specialistProfile.about,
           experience: u.specialistProfile.experience,
           tags: u.specialistProfile.tags,
+          industry: u.specialistProfile.industry,
         }
       : null,
   };
@@ -104,6 +114,7 @@ export async function setUserRole(
           price: p.price ?? 0,
           experience: p.experience ?? 0,
           tags: p.tags ?? [],
+          industry: p.industry ?? null,
         },
         update: {
           ...(p.profession !== undefined ? { profession: p.profession } : {}),
@@ -111,6 +122,7 @@ export async function setUserRole(
           ...(p.price !== undefined ? { price: p.price } : {}),
           ...(p.experience !== undefined ? { experience: p.experience } : {}),
           ...(p.tags !== undefined ? { tags: p.tags } : {}),
+          ...(p.industry !== undefined ? { industry: p.industry } : {}),
         },
       });
     }

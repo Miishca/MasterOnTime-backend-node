@@ -65,9 +65,10 @@ const login = async (email, password = 'pass123') =>
   console.log('5) PATCH role -> SPECIALIST (with profile fields)');
   r = await call('PATCH', `/api/admin/users/${target.id}/role`, {
     role: 'SPECIALIST',
-    profile: { profession: 'Electrician', price: 75, experience: 6, about: 'Licensed' },
+    profile: { profession: 'Electrician', price: 75, experience: 6, about: 'Licensed', industry: 'HOME_GARDEN' },
   }, adminTok);
   assert(r.status === 200 && r.data.role === 'SPECIALIST' && r.data.hasSpecialistProfile, 'now SPECIALIST + profile');
+  assert(r.data.specialistProfile.industry === 'HOME_GARDEN', 'industry saved and returned in admin row');
   const prof = await p.specialistProfile.findUnique({ where: { userId: target.id } });
   assert(prof && Number(prof.price) === 75 && prof.profession === 'Electrician' && prof.experience === 6, 'profile fields saved');
 

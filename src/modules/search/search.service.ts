@@ -88,6 +88,8 @@ export async function updateSpecialistProfile(
       ...(input.price !== undefined ? { price: input.price } : {}),
       ...(input.experience !== undefined ? { experience: input.experience } : {}),
       ...(input.tags !== undefined ? { tags: input.tags } : {}),
+      // null явно прибирає індустрію; undefined (поле відсутнє в тілі) — не чіпає.
+      ...(input.industry !== undefined ? { industry: input.industry } : {}),
     },
   });
   const updated = await prisma.user.findUniqueOrThrow({ where: { id: userId }, ...withProfile });
@@ -102,6 +104,7 @@ export async function searchSpecialists(q: SearchQuery): Promise<PublicSpecialis
     !q.city &&
     (!q.categories || q.categories.length === 0) &&
     (!q.tags || q.tags.length === 0) &&
+    !q.industry &&
     q.minExperience === undefined &&
     q.minRating === undefined;
 
@@ -115,6 +118,9 @@ export async function searchSpecialists(q: SearchQuery): Promise<PublicSpecialis
   // tags — вільні мітки, які спеціаліст сам додає собі в профілі (не плутати
   // з Category/CategoryItem — це справжні "послуги", а tags — просто ярлики).
   if (q.tags && q.tags.length > 0) profileFilter.tags = { hasSome: q.tags };
+  // industry — фіксована "вітринна" індустрія (одна з 5), не плутати з
+  // categories/serviceName нижче, які працюють по власних Category спеціаліста.
+  if (q.industry) profileFilter.industry = q.industry;
 
   const where: Prisma.UserWhereInput = {
     ...BASE_WHERE,

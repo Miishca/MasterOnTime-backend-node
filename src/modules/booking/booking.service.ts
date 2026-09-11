@@ -13,6 +13,7 @@ import {
 const STATUS = {
   CONFIRMED: 'CONFIRMED',
   CANCELLED: 'CANCELLED',
+  COMPLETED: 'COMPLETED',
   BLOCKED: 'BLOCKED',
   RESCHEDULE_REQUESTED: 'RESCHEDULE_REQUESTED',
 } as const;
@@ -84,6 +85,17 @@ async function hasConflict(
 
 function loadBooking(id: number) {
   return prisma.booking.findUnique({ where: { id }, include: bookingInclude });
+}
+
+// Немає окремого воркера/крона (Фаза 6 notifications ще не реалізована) —
+// замість цього лениво "доганяємо" статус при кожному читанні списку
+// бронювань: усе CONFIRMED, що вже минуло за часом, стає COMPLETED. Дешева
+// ідемпотентна UPDATE, тому безпечно викликати на кожен запит.
+export async function completeExpiredBookings(): Promise<void> {
+  await prisma.booking.updateMany({
+    where: { status: STATUS.CONFIRMED, endTime: { lt: new Date() } },
+    data: { status: STATUS.COMPLETED },
+  });
 }
 
 export async function getAvailableTimeSlots(q: AvailableSlotsQuery): Promise<Date[]> {
@@ -347,8 +359,23 @@ export async function getUpcomingAppointments(userId: number): Promise<BookingRe
 
 // Java: findByClientIdAndStatus(userId, CONFIRMED) — тільки як клієнт.
 export async function getConfirmedBookingsForUser(userId: number): Promise<BookingResponseDto[]> {
+  await completeExpiredBookings();
   const rows = await prisma.booking.findMany({
     where: { clientId: userId, status: STATUS.CONFIRMED },
+    orderBy: { startTime: 'asc' },
+    include: bookingInclude,
+  });
+  return rows.map(toBookingResponseDto);
+}
+
+// GET /api/bookings/history — не з Java: клієнту потрібен один ендпоінт, що
+// показує ВСІ його бронювання (майбутні й минулі, будь-якого статусу), а не
+// лише CONFIRMED. Без цього COMPLETED-бронювання ніде не відображались, і
+// "Leave a review" на фронті було неможливо побачити на реальних даних.
+export async function getBookingHistoryForClient(userId: number): Promise<BookingResponseDto[]> {
+  await completeExpiredBookings();
+  const rows = await prisma.booking.findMany({
+    where: { clientId: userId },
     orderBy: { startTime: 'asc' },
     include: bookingInclude,
   });

@@ -1,5 +1,6 @@
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
+import { completeExpiredBookings } from '../booking/booking.service';
 import { toReviewResponseDto, ReviewResponseDto } from './reviews.mapper';
 import { ReviewBody } from './reviews.schemas';
 
@@ -41,6 +42,7 @@ async function createReview(
   userId: number,
   body: ReviewBody,
 ): Promise<ReviewResponseDto> {
+  await completeExpiredBookings();
   const booking = await loadBookingForReview(bookingId);
   assertReviewable(booking, userId);
 
@@ -114,6 +116,7 @@ export async function deleteReview(reviewId: number, userId: number): Promise<vo
 
 // GET /api/reviews/can-review/:bookingId
 export async function canReview(bookingId: number, userId: number): Promise<boolean> {
+  await completeExpiredBookings();
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
   if (!booking) return false;
   if (booking.clientId !== userId) return false;

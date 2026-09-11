@@ -110,6 +110,17 @@ bookingRouter.get(
   }),
 );
 
+// GET /api/bookings/history — усі бронювання поточного клієнта, будь-якого
+// статусу (на відміну від /confirmed, який лише CONFIRMED). Має стояти перед
+// /:bookingId нижче.
+bookingRouter.get(
+  '/history',
+  requireRole('USER'),
+  wrap(async (req, res) => {
+    res.json(await service.getBookingHistoryForClient(req.userId!));
+  }),
+);
+
 // POST /api/bookings/sync-google-calendar — Фаза 6
 bookingRouter.post('/sync-google-calendar', (_req, res) => {
   res.status(501).json({ message: 'Google Calendar sync not implemented yet' });

@@ -131,6 +131,26 @@ const login = async (email) => (await call('POST', '/auth/login', { email, passw
   r = await call('POST', '/api/bookings/sync-google-calendar', {}, cliTok);
   assert(r.status === 501, `501 (got ${r.status})`);
 
+  console.log('15) expired CONFIRMED bookings auto-complete on read (no cron — lazy on GET)');
+  r = await call('POST', '/api/bookings', { specialistId: spec.id, startTime: at(17) }, cliTok);
+  const expiringId = r.data.id;
+  // симулюємо "час минув": відкочуємо start/end у минуле, лишаючи CONFIRMED
+  await p.booking.update({
+    where: { id: expiringId },
+    data: { startTime: new Date(Date.now() - 2 * 3600e3), endTime: new Date(Date.now() - 1 * 3600e3) },
+  });
+  r = await call('GET', '/api/bookings/history', null, cliTok);
+  const found = r.data.find((b) => b.id === expiringId);
+  assert(found && found.status === 'COMPLETED', `history shows COMPLETED (got ${found?.status})`);
+  r = await call('GET', '/api/bookings/confirmed', null, cliTok);
+  assert(!r.data.some((b) => b.id === expiringId), 'no longer in /confirmed');
+
+  console.log('16) /history includes every status (not just CONFIRMED)');
+  r = await call('GET', '/api/bookings/history', null, cliTok);
+  const statuses = new Set(r.data.map((b) => b.status));
+  assert(statuses.has('CANCELLED') && statuses.has('COMPLETED'), `has CANCELLED + COMPLETED (got ${[...statuses]})`);
+  assert((await call('GET', '/api/bookings/history', null, specTok)).status === 403, 'SPECIALIST cannot call /history (USER only)');
+
   // прибирання
   await p.booking.deleteMany({ where: { specialistId: specProfile.id } });
   await p.specialistProfile.deleteMany({ where: { userId: spec.id } });

@@ -13,6 +13,7 @@ import { categoriesRouter } from './modules/categories/categories.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { favoritesRouter } from './modules/favorites/favorites.routes';
 import { portfolioRouter } from './modules/portfolio/portfolio.routes';
+import { paymentsRouter } from './modules/payments/payments.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -41,6 +42,7 @@ app.use('/api/specialist/categories', categoriesRouter);
 app.use('/api/specialist/portfolio', portfolioRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/favorites', favoritesRouter);
+app.use('/api/payments', paymentsRouter);
 app.use('/api/admin', adminRouter);
 
 app.use(errorHandler);

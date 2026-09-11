@@ -46,6 +46,7 @@ model User {
   portfolioItems      PortfolioItem[]
   passwordResetTokens PasswordResetToken[]
   refreshTokens       RefreshToken[]
+  savedCard           SavedCard?
 
   @@map("users")
 }
@@ -212,6 +213,26 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// Збережена картка (LiqPay card_token) — "Лише зберегти картку": юзер додає
+// картку раз на /profile, гроші при цьому НЕ списуються (див. lib/liqpay.ts:
+// це двостадійний action:"hold" без наступного hold_completion — тимчасове
+// блокування суми на картці, як застава, а не реальний переказ продавцю).
+// Сам номер картки ми ніколи не бачимо й не зберігаємо — лише токен від
+// LiqPay і маску для показу в UI. Один юзер — одна картка (@unique), як і
+// в оригінальному сценарії "замінити декоративну картку на /profile".
+model SavedCard {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int      @unique
+  cardToken String
+  cardMask  String
+  cardType  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("saved_cards")
 }
 
 // Обране: юзер зберігає собі список спеціалістів.

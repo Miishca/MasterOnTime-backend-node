@@ -97,6 +97,7 @@ async function register(email, extra) {
   // прибирання
   const emails = [`u${s}@t.dev`, `kyiv${s}@t.dev`, `lviv${s}@t.dev`, `hid${s}@t.dev`];
   const ids = (await p.user.findMany({ where: { email: { in: emails } }, select: { id: true } })).map((u) => u.id);
+  await p.refreshToken.deleteMany({ where: { userId: { in: ids } } });
   await p.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
   await p.user.deleteMany({ where: { id: { in: ids } } });
   await p.$disconnect();

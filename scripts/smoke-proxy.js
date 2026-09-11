@@ -69,6 +69,7 @@ function assert(c, m) { console.log(c ? `  PASS  ${m}` : `  FAIL  ${m}`); if (!c
   assert(direct.status === 200 && viaProxy.status === 200, 'both :8080 and :5173/health = 200');
 
   const ids = (await p.user.findMany({ where: { email }, select: { id: true } })).map((u) => u.id);
+  await p.refreshToken.deleteMany({ where: { userId: { in: ids } } });
   await p.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
   await p.user.deleteMany({ where: { id: { in: ids } } });
   await p.$disconnect();

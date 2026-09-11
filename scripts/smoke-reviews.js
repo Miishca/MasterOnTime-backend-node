@@ -150,6 +150,7 @@ const login = async (email) => (await call('POST', '/auth/login', { email, passw
   assert(r.status === 400, `400 (got ${r.status})`);
 
   // прибирання
+  await p.refreshToken.deleteMany({ where: { userId: { in: [client.id, other.id, spec.id] } } });
   await p.notification.deleteMany({ where: { userId: { in: [client.id, other.id, spec.id] } } });
   await p.review.deleteMany({ where: { specialistId: profile.id } });
   await p.booking.deleteMany({ where: { specialistId: profile.id } });

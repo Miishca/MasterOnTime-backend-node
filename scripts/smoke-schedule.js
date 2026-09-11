@@ -124,6 +124,7 @@ const DOW = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', '
   assert(r.status === 200 && r.data.length === 0, `empty on unscheduled weekday (got n=${r.data.length})`);
 
   // прибирання
+  await p.refreshToken.deleteMany({ where: { user: { email: { in: [`sc${s}@t.dev`, `sk${s}@t.dev`] } } } });
   await p.availability.deleteMany({ where: { specialistId: spec.id } });
   await p.unavailability.deleteMany({ where: { specialistId: spec.id } });
   await p.specialistProfile.deleteMany({ where: { userId: spec.id } });

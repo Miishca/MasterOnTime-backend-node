@@ -3,6 +3,12 @@ import crypto from 'crypto';
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
 import { signToken } from '../../lib/jwt';
+import {
+  issueRefreshToken,
+  revokeAllUserRefreshTokens,
+  revokeRefreshToken,
+  rotateRefreshToken,
+} from '../../lib/refreshTokens';
 import { toUserResponseDto, UserResponseDto } from '../users/user.mapper';
 import { LoginInput, RegistrationInput } from './auth.schemas';
 
@@ -40,7 +46,12 @@ export async function registerUser(input: RegistrationInput): Promise<UserRespon
   return toUserResponseDto(user);
 }
 
-export async function loginUser(input: LoginInput): Promise<{ token: string }> {
+export interface AuthTokens {
+  token: string;
+  refreshToken: string;
+}
+
+export async function loginUser(input: LoginInput): Promise<AuthTokens> {
   const user = await prisma.user.findUnique({ where: { email: input.email } });
   if (!user || user.isDeleted) {
     throw new HttpError(401, 'Invalid email or password');
@@ -51,7 +62,27 @@ export async function loginUser(input: LoginInput): Promise<{ token: string }> {
     throw new HttpError(401, 'Invalid email or password');
   }
 
-  return { token: signToken({ id: user.id, role: user.role, email: user.email }) };
+  const token = signToken({ id: user.id, role: user.role, email: user.email });
+  const refreshToken = await issueRefreshToken(user.id);
+  return { token, refreshToken };
+}
+
+// POST /auth/refresh — обмінює дійсний refresh-токен на нову пару (ротація).
+export async function refreshAccessToken(rawRefreshToken: string): Promise<AuthTokens> {
+  const rotated = await rotateRefreshToken(rawRefreshToken);
+  if (!rotated) throw new HttpError(401, 'Invalid or expired refresh token');
+
+  const user = await prisma.user.findUnique({ where: { id: rotated.userId } });
+  if (!user || user.isDeleted) throw new HttpError(401, 'Invalid or expired refresh token');
+
+  const token = signToken({ id: user.id, role: user.role, email: user.email });
+  return { token, refreshToken: rotated.newRawToken };
+}
+
+// POST /auth/logout — відкликає лише цю сесію (цей refresh-токен).
+// Завжди "успіх": вихід з уже недійсною/чужою сесією не повинен бути помилкою.
+export async function logoutUser(rawRefreshToken: string): Promise<void> {
+  await revokeRefreshToken(rawRefreshToken);
 }
 
 const hashToken = (raw: string) => crypto.createHash('sha256').update(raw).digest('hex');
@@ -98,4 +129,6 @@ export async function resetPassword(rawToken: string, newPassword: string): Prom
     prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
     prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
   ]);
+  // Скомпрометований пароль не повинен лишати чинними сесії, видані до скидання.
+  await revokeAllUserRefreshTokens(record.userId);
 }

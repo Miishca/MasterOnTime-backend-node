@@ -51,3 +51,6 @@ export const resetPasswordSchema = z
     path: ['repeatPassword'],
   });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+export const refreshTokenSchema = z.object({ refreshToken: z.string().min(1) }).strict();
+export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;

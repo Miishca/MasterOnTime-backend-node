@@ -97,6 +97,7 @@ const login = async (email, password = 'pass123') =>
   assert((await p.specialistProfile.findUnique({ where: { userId: target.id } })) !== null, 'profile row still exists');
 
   // прибирання (адміна лишаємо)
+  await p.refreshToken.deleteMany({ where: { userId: target.id } });
   await p.specialistProfile.deleteMany({ where: { userId: target.id } });
   await p.user.deleteMany({ where: { email: `u${s}@t.dev` } });
   await p.$disconnect();

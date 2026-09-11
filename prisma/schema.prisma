@@ -45,6 +45,7 @@ model User {
   favoritedBy         Favorite[]           @relation("FavoritedSpecialist")
   portfolioItems      PortfolioItem[]
   passwordResetTokens PasswordResetToken[]
+  refreshTokens       RefreshToken[]
 
   @@map("users")
 }
@@ -194,6 +195,23 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@map("password_reset_tokens")
+}
+
+// Refresh-токени — так JWT-сесію можна реально відкликати (logout, зміна
+// пароля), а не лише "забути" на клієнті. Той самий підхід, що й
+// PasswordResetToken: зберігаємо тільки SHA-256 хеш, ніколи сирий токен.
+// Ротація при кожному /auth/refresh: старий revoked, видається новий.
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  user      User      @relation(fields: [userId], references: [id])
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 // Обране: юзер зберігає собі список спеціалістів.

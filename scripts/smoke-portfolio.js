@@ -80,6 +80,7 @@ const TINY_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42m
   assert((await call('GET', '/api/specialists/99999999/portfolio')).status === 404, 'missing -> 404');
 
   // прибирання
+  await p.refreshToken.deleteMany({ where: { user: { email: { in: [`ps${s}@t.dev`, `po${s}@t.dev`, `pc${s}@t.dev`] } } } });
   await p.portfolioItem.deleteMany({ where: { specialistUserId: { in: [spec.id, other.id] } } });
   await p.specialistProfile.deleteMany({ where: { userId: { in: [spec.id, other.id] } } });
   await p.user.deleteMany({ where: { email: { in: [`ps${s}@t.dev`, `po${s}@t.dev`, `pc${s}@t.dev`] } } });

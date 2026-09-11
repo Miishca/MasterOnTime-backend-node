@@ -59,6 +59,7 @@ function assert(c, m) { console.log(c ? `  PASS  ${m}` : `  FAIL  ${m}`); if (!c
   assert((await call('POST', '/auth/reset-password', { token: rawToken2, password: 'short', repeatPassword: 'short' })).status === 400, '400');
 
   // прибирання
+  await p.refreshToken.deleteMany({ where: { userId } });
   await p.passwordResetToken.deleteMany({ where: { userId } });
   await p.user.deleteMany({ where: { email } });
   await p.$disconnect();

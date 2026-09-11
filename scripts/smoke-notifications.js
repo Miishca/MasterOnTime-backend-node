@@ -77,6 +77,7 @@ const login = async (email, pw = 'pass123') => (await call('POST', '/auth/login'
 
   // прибирання
   await p.review.deleteMany({ where: { bookingId: booking.id } });
+  await p.refreshToken.deleteMany({ where: { userId: { in: [client.id, spec.id] } } });
   await p.notification.deleteMany({ where: { userId: { in: [client.id, spec.id] } } });
   await p.booking.deleteMany({ where: { id: booking.id } });
   await p.specialistProfile.deleteMany({ where: { userId: spec.id } });

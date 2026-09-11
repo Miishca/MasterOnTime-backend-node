@@ -95,6 +95,7 @@ const login = async (email, pw = 'pass123') => (await call('POST', '/auth/login'
   assert((await call('PATCH', `/api/admin/users/${spec.id}/specialist-profile`, { about: 'x' }, specTok)).status === 403, '403');
 
   // прибирання
+  await p.refreshToken.deleteMany({ where: { userId: { in: [spec.id, plain.id] } } });
   await p.specialistProfile.deleteMany({ where: { userId: { in: [spec.id, plain.id] } } });
   await p.user.deleteMany({ where: { email: { in: [`sp${s}@t.dev`, `pl${s}@t.dev`] } } });
   await p.$disconnect();

@@ -68,6 +68,7 @@ const login = async (email, pw = 'pass123') => (await call('POST', '/auth/login'
   assert((await call('DELETE', `/api/favorites/${spec.id}`, null, cliTok)).status === 204, '204');
 
   // прибирання
+  await p.refreshToken.deleteMany({ where: { userId: { in: [client.id, spec.id, hidden.id] } } });
   await p.favorite.deleteMany({ where: { userId: client.id } });
   await p.specialistProfile.deleteMany({ where: { userId: { in: [spec.id, hidden.id] } } });
   await p.user.deleteMany({ where: { email: { in: [`fc${s}@t.dev`, `fs${s}@t.dev`, `fh${s}@t.dev`] } } });

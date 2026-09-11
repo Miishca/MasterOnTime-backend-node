@@ -131,6 +131,7 @@ const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_mod
   // прибирання тестових акаунтів
   const emails = [userEmail, specEmail, `photo${stamp}@test.dev`];
   const ids = (await prisma.user.findMany({ where: { email: { in: emails } }, select: { id: true } })).map((u) => u.id);
+  await prisma.refreshToken.deleteMany({ where: { userId: { in: ids } } });
   await prisma.specialistProfile.deleteMany({ where: { userId: { in: ids } } });
   await prisma.user.deleteMany({ where: { id: { in: ids } } });
   await prisma.$disconnect();

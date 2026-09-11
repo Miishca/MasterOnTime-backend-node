@@ -152,6 +152,7 @@ const login = async (email) => (await call('POST', '/auth/login', { email, passw
   assert((await call('GET', '/api/bookings/history', null, specTok)).status === 403, 'SPECIALIST cannot call /history (USER only)');
 
   // прибирання
+  await p.refreshToken.deleteMany({ where: { userId: { in: [client.id, other.id, spec.id] } } });
   await p.notification.deleteMany({ where: { userId: { in: [client.id, other.id, spec.id] } } });
   await p.booking.deleteMany({ where: { specialistId: specProfile.id } });
   await p.specialistProfile.deleteMany({ where: { userId: spec.id } });

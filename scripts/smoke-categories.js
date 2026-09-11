@@ -120,6 +120,7 @@ const login = async (email, pw = 'pass123') => (await call('POST', '/auth/login'
   assert((await p.categoryItem.count({ where: { id: itemId } })) === 0, 'remaining item gone');
 
   // прибирання
+  await p.notification.deleteMany({ where: { userId: { in: [spec.id, other.id, client.id] } } });
   await p.booking.deleteMany({ where: { clientId: { in: [client.id] } } });
   await p.category.deleteMany({ where: { specialistId: { in: [spec.id, other.id] } } });
   await p.specialistProfile.deleteMany({ where: { userId: { in: [spec.id, other.id] } } });

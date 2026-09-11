@@ -223,7 +223,10 @@ export async function cancelBooking(userId: number, bookingId: number): Promise<
     data: { status: STATUS.CANCELLED },
     include: bookingInclude,
   });
-  notifications.bookingCancelled(updated);
+  // Сповіщаємо іншу сторону, не того, хто скасував.
+  const recipientUserId =
+    userId === booking.clientId ? booking.specialist.userId : booking.clientId;
+  notifications.bookingCancelled(updated, recipientUserId);
 }
 
 export async function proposeReschedule(

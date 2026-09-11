@@ -20,3 +20,13 @@ export function toReviewResponseDto(r: Review): ReviewResponseDto {
     createdAt: r.createdAt,
   };
 }
+
+// GET /api/reviews/moderation — адміну потрібен ще й статус, якого немає в
+// публічному ReviewResponseDto.
+export interface ModerationReviewDto extends ReviewResponseDto {
+  status: string;
+}
+
+export function toModerationReviewDto(r: Review): ModerationReviewDto {
+  return { ...toReviewResponseDto(r), status: r.status };
+}

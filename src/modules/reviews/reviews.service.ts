@@ -1,7 +1,8 @@
 import { prisma } from '../../config/db';
 import { HttpError } from '../../middleware/errorHandler';
 import { completeExpiredBookings } from '../booking/booking.service';
-import { toReviewResponseDto, ReviewResponseDto } from './reviews.mapper';
+import { notifications } from '../../lib/notifications';
+import { ModerationReviewDto, toModerationReviewDto, toReviewResponseDto, ReviewResponseDto } from './reviews.mapper';
 import { ReviewBody } from './reviews.schemas';
 
 const COMPLETED = 'COMPLETED';
@@ -61,6 +62,11 @@ async function createReview(
     },
   });
   await recomputeSpecialistRating(booking.specialistId);
+  const profile = await prisma.specialistProfile.findUnique({
+    where: { id: booking.specialistId },
+    select: { userId: true },
+  });
+  if (profile) notifications.reviewReceived(profile.userId, body.rating, bookingId);
   return toReviewResponseDto(review);
 }
 
@@ -112,6 +118,36 @@ export async function deleteReview(reviewId: number, userId: number): Promise<vo
   const review = await loadOwnReview(reviewId, userId);
   await prisma.review.delete({ where: { id: reviewId } });
   await recomputeSpecialistRating(review.specialistId);
+}
+
+// POST /api/reviews/:id/flag — будь-який автентифікований юзер може поскаржитись.
+export async function flagReview(reviewId: number): Promise<void> {
+  const review = await prisma.review.findUnique({ where: { id: reviewId } });
+  if (!review) throw new HttpError(404, 'Review not found');
+  if (review.status === 'DELETED') throw new HttpError(400, 'Review no longer exists');
+  await prisma.review.update({ where: { id: reviewId }, data: { status: 'FLAGGED' } });
+}
+
+// GET /api/reviews/moderation — ADMIN: черга на розгляд (FLAGGED) + вже приховані.
+export async function listForModeration(): Promise<ModerationReviewDto[]> {
+  const rows = await prisma.review.findMany({
+    where: { status: { in: ['FLAGGED', 'HIDDEN'] } },
+    orderBy: { createdAt: 'desc' },
+  });
+  return rows.map(toModerationReviewDto);
+}
+
+// PUT /api/reviews/:id/moderate — ADMIN: VISIBLE (зняти прапорець) / HIDDEN / DELETED.
+export async function moderateReview(
+  reviewId: number,
+  status: 'VISIBLE' | 'FLAGGED' | 'HIDDEN' | 'DELETED',
+): Promise<ReviewResponseDto> {
+  const review = await prisma.review.findUnique({ where: { id: reviewId } });
+  if (!review) throw new HttpError(404, 'Review not found');
+  const updated = await prisma.review.update({ where: { id: reviewId }, data: { status } });
+  // HIDDEN/DELETED виключають відгук із середнього рейтингу (лише VISIBLE рахується).
+  await recomputeSpecialistRating(review.specialistId);
+  return toReviewResponseDto(updated);
 }
 
 // GET /api/reviews/can-review/:bookingId

@@ -1,5 +1,7 @@
-// Димовий тест Фази 4 (reviews). node scripts/smoke-reviews.js  (сервер на :8080)
+// Димовий тест Фази 4 (reviews) + модерація (Фаза 6). node scripts/smoke-reviews.js  (сервер на :8080)
+require('dotenv/config');
 const { PrismaClient } = require('C:/Projects/MasterOnTime-backend-node/node_modules/@prisma/client');
+const { execSync } = require('child_process');
 const BASE = 'http://localhost:8080';
 
 async function call(method, path, body, token) {
@@ -115,15 +117,40 @@ const login = async (email) => (await call('POST', '/auth/login', { email, passw
   prof = await p.specialistProfile.findUnique({ where: { id: profile.id } });
   assert(prof.rating === 1, `only rev1 (rating 1) left -> 1 (got ${prof.rating})`);
 
-  console.log('14) moderation endpoints -> 501');
-  assert((await call('GET', '/api/reviews/moderation', null, cliTok)).status === 501, 'GET /moderation 501');
-  assert((await call('PUT', '/api/reviews/1/moderate', {}, cliTok)).status === 501, 'PUT /:id/moderate 501');
+  console.log('14) moderation — flag, admin queue, hide, restore');
+  execSync('node scripts/seed-admin.js', { cwd: 'C:/Projects/MasterOnTime-backend-node', stdio: 'pipe' });
+  const adminLogin = await call('POST', '/auth/login', { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD });
+  const admTok = adminLogin.data.token;
+
+  assert((await call('GET', '/api/reviews/moderation', null, cliTok)).status === 403, 'non-admin GET /moderation -> 403');
+  assert((await call('PUT', `/api/reviews/${rev1}/moderate`, { status: 'HIDDEN' }, cliTok)).status === 403, 'non-admin moderate -> 403');
+
+  r = await call('POST', `/api/reviews/${rev1}/flag`, {}, othTok);
+  assert(r.status === 204, `flag 204 (got ${r.status})`);
+  r = await call('GET', '/api/reviews/moderation', null, admTok);
+  assert(r.status === 200 && r.data.some((x) => x.id === rev1 && x.status === 'FLAGGED'), 'shows up FLAGGED in admin queue');
+
+  r = await call('PUT', `/api/reviews/${rev1}/moderate`, { status: 'HIDDEN' }, admTok);
+  assert(r.status === 200, `moderate -> HIDDEN 200 (got ${r.status})`);
+  r = await call('GET', `/api/specialists/${spec.id}/reviews`);
+  assert(!r.data.some((x) => x.id === rev1), 'hidden review no longer public');
+  prof = await p.specialistProfile.findUnique({ where: { id: profile.id } });
+  assert(prof.rating === 0, `rating excludes hidden review -> 0 (got ${prof.rating})`);
+
+  r = await call('PUT', `/api/reviews/${rev1}/moderate`, { status: 'VISIBLE' }, admTok);
+  assert(r.status === 200, `restore to VISIBLE 200 (got ${r.status})`);
+  r = await call('GET', `/api/specialists/${spec.id}/reviews`);
+  assert(r.data.some((x) => x.id === rev1), 'visible again');
+
+  assert((await call('PUT', `/api/reviews/${rev1}/moderate`, { status: 'NOT_REAL' }, admTok)).status === 400, 'invalid status -> 400');
+  assert((await call('POST', '/api/reviews/99999999/flag', {}, othTok)).status === 404, 'flag missing review -> 404');
 
   console.log('15) validation: rating 6 -> 400');
   r = await call('POST', '/api/reviews', { bookingId: b1.id, rating: 6 }, cliTok);
   assert(r.status === 400, `400 (got ${r.status})`);
 
   // прибирання
+  await p.notification.deleteMany({ where: { userId: { in: [client.id, other.id, spec.id] } } });
   await p.review.deleteMany({ where: { specialistId: profile.id } });
   await p.booking.deleteMany({ where: { specialistId: profile.id } });
   await p.specialistProfile.deleteMany({ where: { userId: spec.id } });

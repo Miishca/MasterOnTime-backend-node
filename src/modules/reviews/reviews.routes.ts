@@ -1,7 +1,7 @@
 import { NextFunction, Response, Router } from 'express';
 import { AuthedRequest, requireAuth, requireRole } from '../../middleware/auth';
 import { HttpError } from '../../middleware/errorHandler';
-import { addReviewSchema, reviewBodySchema } from './reviews.schemas';
+import { addReviewSchema, moderateReviewSchema, reviewBodySchema } from './reviews.schemas';
 import * as service from './reviews.service';
 
 export const reviewsRouter = Router();
@@ -58,15 +58,34 @@ reviewsRouter.get(
   }),
 );
 
-// GET /api/reviews/moderation  — Фаза 6 (admin)
-reviewsRouter.get('/moderation', (_req, res) => {
-  res.status(501).json({ message: 'Review moderation not implemented yet' });
-});
+// POST /api/reviews/:id/flag — будь-який автентифікований юзер
+reviewsRouter.post(
+  '/:id/flag',
+  requireRole('USER', 'SPECIALIST', 'ADMIN'),
+  wrap(async (req, res) => {
+    await service.flagReview(idParam(req, 'id'));
+    res.sendStatus(204);
+  }),
+);
 
-// PUT /api/reviews/:id/moderate — Фаза 6 (admin)
-reviewsRouter.put('/:id/moderate', (_req, res) => {
-  res.status(501).json({ message: 'Review moderation not implemented yet' });
-});
+// GET /api/reviews/moderation  — ADMIN
+reviewsRouter.get(
+  '/moderation',
+  requireRole('ADMIN'),
+  wrap(async (_req, res) => {
+    res.json(await service.listForModeration());
+  }),
+);
+
+// PUT /api/reviews/:id/moderate — ADMIN
+reviewsRouter.put(
+  '/:id/moderate',
+  requireRole('ADMIN'),
+  wrap(async (req, res) => {
+    const { status } = moderateReviewSchema.parse(req.body);
+    res.json(await service.moderateReview(idParam(req, 'id'), status));
+  }),
+);
 
 // PUT /api/reviews/:id
 reviewsRouter.put(

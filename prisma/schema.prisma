@@ -11,19 +11,19 @@ datasource db {
 // Порядок портування: auth/users -> search -> booking -> reviews -> schedule -> решта.
 
 model User {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
   passwordHash String
   firstName    String
   lastName     String
   phoneNumber  String?
-  profileImage String?  @db.Text // зберігає data: URI (як Java @Lob)
-  role         Role     @default(USER)
+  profileImage String?   @db.Text // зберігає data: URI (як Java @Lob)
+  role         Role      @default(USER)
   dateOfBirth  DateTime?
   gender       Gender?
-  visible      Boolean  @default(true) // фільтр пошуку та /api/users/specialists
-  isDeleted    Boolean  @default(false) // м'яке видалення (Java @SQLDelete)
-  createdAt    DateTime @default(now())
+  visible      Boolean   @default(true) // фільтр пошуку та /api/users/specialists
+  isDeleted    Boolean   @default(false) // м'яке видалення (Java @SQLDelete)
+  createdAt    DateTime  @default(now())
 
   addressCountry String?
   addressCity    String?
@@ -34,12 +34,17 @@ model User {
   googleCalendarRefreshToken String?
   calendarSyncEnabled        Boolean @default(false)
 
-  specialistProfile SpecialistProfile?
-  bookingsAsClient  Booking[]          @relation("ClientBookings")
-  reviewsWritten    Review[]           @relation("ReviewAuthor")
-  availability      Availability[]
-  unavailability    Unavailability[]
-  categories        Category[]         @relation("CategoryOwner")
+  specialistProfile   SpecialistProfile?
+  bookingsAsClient    Booking[]            @relation("ClientBookings")
+  reviewsWritten      Review[]             @relation("ReviewAuthor")
+  availability        Availability[]
+  unavailability      Unavailability[]
+  categories          Category[]           @relation("CategoryOwner")
+  notifications       Notification[]
+  favoritesMade       Favorite[]           @relation("FavoritesByUser")
+  favoritedBy         Favorite[]           @relation("FavoritedSpecialist")
+  portfolioItems      PortfolioItem[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
@@ -66,23 +71,23 @@ model SpecialistProfile {
 }
 
 model Booking {
-  id                Int           @id @default(autoincrement())
-  client            User?         @relation("ClientBookings", fields: [clientId], references: [id])
+  id                Int               @id @default(autoincrement())
+  client            User?             @relation("ClientBookings", fields: [clientId], references: [id])
   clientId          Int? // null для BLOCKED-слотів
   specialist        SpecialistProfile @relation("SpecialistBookings", fields: [specialistId], references: [id])
   specialistId      Int
-  serviceItem       CategoryItem? @relation(fields: [serviceItemId], references: [id])
+  serviceItem       CategoryItem?     @relation(fields: [serviceItemId], references: [id])
   serviceItemId     Int?
   startTime         DateTime
   endTime           DateTime
-  status            BookingStatus @default(CONFIRMED)
+  status            BookingStatus     @default(CONFIRMED)
   proposedStartTime DateTime?
   proposedEndTime   DateTime?
   rescheduleMessage String?
   reason            String? // причина блокування слоту
-  followUpSent      Boolean       @default(false)
-  priceAtBooking    Decimal       @db.Decimal(10, 2)
-  createdAt         DateTime      @default(now())
+  followUpSent      Boolean           @default(false)
+  priceAtBooking    Decimal           @db.Decimal(10, 2)
+  createdAt         DateTime          @default(now())
 
   review Review?
 
@@ -146,6 +151,75 @@ model Unavailability {
   specialistId Int
 
   @@map("unavailabilities")
+}
+
+// In-app сповіщення — заміна email, поки немає реального SMTP/сервісу
+// (див. lib/notifications.ts). bookingId — довідково для deep-link на
+// фронті, без FK (бронювання не видаляються фізично, але не варто
+// ускладнювати схему заради поля, яке лише підказує посилання).
+model Notification {
+  id        Int              @id @default(autoincrement())
+  user      User             @relation(fields: [userId], references: [id])
+  userId    Int
+  type      NotificationType
+  title     String
+  body      String
+  read      Boolean          @default(false)
+  bookingId Int?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  BOOKING_CREATED
+  BOOKING_CANCELLED
+  RESCHEDULE_PROPOSED
+  RESCHEDULE_ACCEPTED
+  RESCHEDULE_DECLINED
+  REVIEW_RECEIVED
+}
+
+// Токен для "Forgot password" — зберігаємо лише SHA-256 хеш (не сирий
+// токен), як паролі. Сирий токен іде "поштою" — поки немає SMTP, це лог на
+// сервері (той самий підхід, що й lib/notifications.ts).
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  user      User      @relation(fields: [userId], references: [id])
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+// Обране: юзер зберігає собі список спеціалістів.
+model Favorite {
+  id               Int      @id @default(autoincrement())
+  user             User     @relation("FavoritesByUser", fields: [userId], references: [id])
+  userId           Int
+  specialist       User     @relation("FavoritedSpecialist", fields: [specialistUserId], references: [id])
+  specialistUserId Int
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, specialistUserId])
+  @@map("favorites")
+}
+
+// Портфоліо спеціаліста — фото + підпис, той самий підхід до зображень, що
+// й User.profileImage (data: URI, без файлового сховища).
+model PortfolioItem {
+  id               Int      @id @default(autoincrement())
+  specialist       User     @relation(fields: [specialistUserId], references: [id])
+  specialistUserId Int
+  imageUrl         String   @db.Text
+  caption          String   @default("")
+  createdAt        DateTime @default(now())
+
+  @@map("portfolio_items")
 }
 
 enum Role {

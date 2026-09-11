@@ -11,6 +11,7 @@ import {
   updateSpecialistProfile,
 } from './search.service';
 import { getPublicServices } from '../categories/categories.service';
+import { getPublicPortfolio } from '../portfolio/portfolio.service';
 
 // /api/specialists — публічний каталог (гість бачить лише PublicSpecialistDto,
 // без контактів / адреси / ДН) + self-service профіль для самого спеціаліста.
@@ -87,5 +88,15 @@ searchRouter.get(
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) throw new HttpError(400, 'Invalid specialist id');
     res.json(await getPublicServices(id));
+  }),
+);
+
+// GET /api/specialists/:id/portfolio — публічно
+searchRouter.get(
+  '/:id/portfolio',
+  wrap(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new HttpError(400, 'Invalid specialist id');
+    res.json(await getPublicPortfolio(id));
   }),
 );

@@ -12,3 +12,10 @@ export const addReviewSchema = reviewBodySchema.extend({
   bookingId: z.coerce.number().int().positive(),
 });
 export type AddReviewInput = z.infer<typeof addReviewSchema>;
+
+// PUT /api/reviews/:id/moderate — ADMIN. EDITED свідомо не включений: це не
+// дія, яку виконує адмін, а можливий майбутній авто-статус при редагуванні.
+export const moderateReviewSchema = z
+  .object({ status: z.enum(['VISIBLE', 'FLAGGED', 'HIDDEN', 'DELETED']) })
+  .strict();
+export type ModerateReviewInput = z.infer<typeof moderateReviewSchema>;
